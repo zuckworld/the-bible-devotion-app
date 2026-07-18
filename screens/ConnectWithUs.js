@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { View, Linking, StyleSheet } from 'react-native';
 import { Card, Text, Button, Divider, Snackbar, TextInput } from 'react-native-paper';
-import { Alert, Share } from 'react-native';
+import { Share } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { contactAPI } from '../services/api';
 import { supportAPI } from '../services/api';
 import * as Device from 'expo-device';
 
-export default function ConnectWithUs({ navigation }) {
+export default function ConnectWithUs() {
+  const navigation = useNavigation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -68,6 +70,10 @@ export default function ConnectWithUs({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.topNav}>
+        <Button compact mode="outlined" onPress={() => navigation.goBack()} icon="arrow-left">Back</Button>
+        <Button compact mode="text" onPress={() => navigation.navigate('MainTabs')} icon="home-outline">Home</Button>
+      </View>
       <Card style={styles.card}>
         <Card.Content>
           <Text variant="headlineSmall" style={{ fontWeight: '700', marginBottom: 8 }}>Connect With Us</Text>
@@ -139,6 +145,7 @@ export default function ConnectWithUs({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
+  topNav: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, gap: 8 },
   card: { marginBottom: 12, borderRadius: 12 },
   field: { marginBottom: 12 },
 });

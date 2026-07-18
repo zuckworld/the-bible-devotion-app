@@ -187,6 +187,20 @@ export const appAPI = {
   },
 };
 
+export const audioAPI = {
+  getLibrary: async () => {
+    try {
+      const res = await api.get('/audio');
+      const data = res.data?.data ?? res.data;
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.items)) return data.items;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  },
+};
+
 export const userAPI = {
   getUserData: async () => {
     const userId = await getUserId();

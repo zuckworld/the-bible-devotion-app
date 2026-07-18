@@ -68,7 +68,9 @@ export default function AuthScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Appbar.Header>
+        <Appbar.Action icon="arrow-left" onPress={() => navigation.goBack()} />
         <Appbar.Content title={mode === 'signup' ? 'Create account' : mode === 'forgot' ? 'Reset password' : 'Welcome back'} subtitle="Sign in to sync your notes, bookmarks, and devotional progress." />
+        <Appbar.Action icon="home-outline" onPress={() => navigation.navigate('MainTabs')} />
       </Appbar.Header>
 
       {mode === 'signup' && (

@@ -39,7 +39,7 @@ import { WebView } from 'react-native-webview';
 import BookmarkProvider from "./bookmarks/BookmarkContext";
 import { AppStateProvider, useAppState } from "./contexts/AppContext";
 import { PaperThemeProvider, PaperThemeContext } from "./components/PaperThemeContext";
-import { API_BASE_URL, devotionalAPI, bibleAPI, userAPI, appAPI } from "./services/api";
+import { API_BASE_URL, devotionalAPI, bibleAPI, userAPI, appAPI, audioAPI } from "./services/api";
 import { cleanText } from "./utils/textCleanup";
 import { findMatchingLocalBook } from "./utils/bibleFallback";
 import kjv from "./assets/bible/kjv.json";
@@ -60,11 +60,11 @@ const premiumFeatures = {
   Assistant: "Personalized devotional recommendations and AI faith companion.",
 };
 
-const audioTracks = [
-  { id: "daily-audio", title: "Today's Audio Devotional", host: "Heart to Heart", duration: "12:40", durationSeconds: 760, type: "Devotional" },
-  { id: "sermon-grace", title: "Grace for the Quiet Place", host: "P. Olawoyin", duration: "34:15", durationSeconds: 2055, type: "Sermon" },
-  { id: "podcast-prayer", title: "Prayer That Shapes the Morning", host: "H2H Podcast", duration: "22:08", durationSeconds: 1328, type: "Podcast" },
-  { id: "worship-still", title: "Still Waters Worship", host: "Premium Worship", duration: "18:02", durationSeconds: 1082, type: "Playlist" },
+const defaultAudioTracks = [
+  { id: "daily-audio", title: "Today's Audio Devotional", host: "Heart to Heart", duration: "12:40", durationSeconds: 760, type: "Devotional", description: "A gentle daily devotion to start the day with Scripture and prayer." },
+  { id: "sermon-grace", title: "Grace for the Quiet Place", host: "P. Olawoyin", duration: "34:15", durationSeconds: 2055, type: "Sermon", description: "A reflective sermon for peace, patience, and spiritual focus." },
+  { id: "podcast-prayer", title: "Prayer That Shapes the Morning", host: "H2H Podcast", duration: "22:08", durationSeconds: 1328, type: "Podcast", description: "A guided prayer and journaling episode for the morning routine." },
+  { id: "worship-still", title: "Still Waters Worship", host: "Premium Worship", duration: "18:02", durationSeconds: 1082, type: "Playlist", description: "A worship playlist for rest, reflection, and praise." },
 ];
 
 const planItems = [
@@ -194,7 +194,7 @@ function LockedCard({ title, body, icon = "lock-outline", onUpgrade }) {
           <Text variant="titleSmall" style={[styles.bold, { color: currentTheme.colors.onSurface }]}>{title}</Text>
           <Text variant="bodySmall" style={{ color: currentTheme.colors.outline, marginTop: 4 }}>{body}</Text>
         </View>
-        <Button mode="contained" onPress={onUpgrade} compact>Upgrade</Button>
+        <Button mode="contained" onPress={onUpgrade} compact>Create account / login</Button>
       </Card.Content>
     </Card>
   );
@@ -706,7 +706,7 @@ function SearchScreen({ navigation }) {
         found.push({ key: `devotional-${item.id}`, type: "Devotional", title: item.title, text: item.body, item });
       }
     });
-    audioTracks.concat(audioState.recentlyPlayed || []).forEach((track) => {
+    defaultAudioTracks.concat(audioState.recentlyPlayed || []).forEach((track) => {
       const haystack = `${track.title} ${track.host} ${track.type}`.toLowerCase();
       if (haystack.includes(needle) && found.length < 90) {
         found.push({ key: `audio-${track.id}`, type: "Audio", title: track.title, text: `${track.type} - ${track.duration}`, track });
@@ -791,16 +791,39 @@ function PremiumHubScreen({ navigation }) {
 
 function AudioScreen({ navigation }) {
   const { playTrack } = useAppState();
+  const [tracks, setTracks] = useState(defaultAudioTracks);
+
+  useEffect(() => {
+    let active = true;
+    audioAPI.getLibrary().then((items) => {
+      if (!active) return;
+      const nextTracks = Array.isArray(items) && items.length ? items.map((item, index) => ({
+        id: item.id || item._id || `audio-${index + 1}`,
+        title: item.title || item.name || defaultAudioTracks[index]?.title || 'Audio devotional',
+        host: item.host || item.author || 'Heart to Heart',
+        duration: item.duration || defaultAudioTracks[index % defaultAudioTracks.length].duration,
+        durationSeconds: item.durationSeconds || 900,
+        type: item.type || 'Audio',
+        description: item.description || item.subtitle || defaultAudioTracks[index % defaultAudioTracks.length].description,
+      })) : defaultAudioTracks;
+      setTracks(nextTracks);
+    }).catch(() => {
+      if (active) setTracks(defaultAudioTracks);
+    });
+    return () => { active = false; };
+  }, []);
+
   return (
     <Screen>
-      <Header title="Audio" subtitle="Devotionals, sermons, podcasts, and worship playlists." />
-      {audioTracks.map((track) => (
-        <Card key={track.id} style={styles.card} onPress={() => playTrack(track, audioTracks)}>
+      <Header back title="Audio" subtitle="Devotionals, sermons, podcasts, and worship playlists." />
+      {tracks.map((track) => (
+        <Card key={track.id} style={styles.card} onPress={() => playTrack(track, tracks)}>
           <Card.Content style={styles.row}>
             <View style={styles.iconTile}><MaterialCommunityIcons name={"play-circle"} size={26} color="#E94E77" /></View>
             <View style={styles.flex}>
               <Text variant="titleSmall" style={styles.bold}>{track.title}</Text>
               <Text variant="bodySmall" style={styles.muted}>{track.type} • {track.host} • {track.duration}</Text>
+              {track.description ? <Text variant="bodySmall" style={styles.muted}>{track.description}</Text> : null}
             </View>
             <Button compact onPress={() => navigation.navigate("AudioPlayer", { track })}>Open</Button>
           </Card.Content>
@@ -1330,9 +1353,9 @@ function PaywallScreen({ navigation }) {
         </Pressable>
       </View>
       <View style={styles.paywallSheet}>
-        <Text variant="headlineSmall" style={[styles.bold, styles.centerText, { color: "#191714" }]}>Unlock all content with Glory Plus</Text>
+        <Text variant="headlineSmall" style={[styles.bold, styles.centerText, { color: "#191714" }]}>Create account or login to access full features</Text>
         <Text variant="bodyMedium" style={[styles.centerText, { color: "#4E463B", marginTop: 8 }]}>
-          Every subscription supports this ministry and prepares the app for Google Play Billing verification.
+          Guest mode is still available for first-time use, but sign-in unlocks your bookmarks, saved notes, prayer journal, and premium content.
         </Text>
         <Pressable style={styles.sponsorshipRow}>
           <MaterialCommunityIcons name="plus" size={18} color="#191714" />
@@ -1359,8 +1382,8 @@ function PaywallScreen({ navigation }) {
           </Pressable>
         </View>
         {subscription.trialEligible && <Chip icon="gift" style={{ alignSelf: "center", marginBottom: 10 }}>7-day free trial</Chip>}
-        <Button mode="contained" buttonColor="#111" textColor="#fff" onPress={subscribe} style={styles.primaryButton}>Start my 7-day free trial</Button>
-        <Button mode="text" onPress={() => activatePremium("restored-demo")}>Restore purchases</Button>
+        <Button mode="contained" buttonColor="#111" textColor="#fff" onPress={() => navigation.navigate("Auth")} style={styles.primaryButton}>Create account or login</Button>
+        <Button mode="text" onPress={() => navigation.goBack()}>Continue as guest</Button>
         <Text variant="labelSmall" style={[styles.centerText, styles.muted]}>Prepared for Google Play Billing purchase, verification, restore, and graceful failure states.</Text>
       </View>
     </Screen>
@@ -1369,10 +1392,10 @@ function PaywallScreen({ navigation }) {
 
 function AudioPlayerScreen({ route }) {
   const { audioState, playTrack, togglePlayback, seekAudio, isPremium, toggleDownload, setAudioSpeed } = useAppState();
-  const track = route.params?.track || audioState.currentTrack || audioTracks[0];
+  const track = route.params?.track || audioState.currentTrack || defaultAudioTracks[0];
 
   useEffect(() => {
-    if (isPremium && track && audioState.currentTrack?.id !== track.id) playTrack(track, audioTracks);
+    if (isPremium && track && audioState.currentTrack?.id !== track.id) playTrack(track, defaultAudioTracks);
   }, [track?.id]);
 
   const percent = audioState.duration ? audioState.position / audioState.duration : 0;
