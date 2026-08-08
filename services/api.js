@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getDevotionsForMonth, getTodayDevotional, months } from "../data/DevotionalData";
 import { cleanDevotional, cleanText } from "../utils/textCleanup";
 
-const configuredBaseUrl = (process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000").replace(/\/$/, "");
+const configuredBaseUrl = (process.env.EXPO_PUBLIC_API_URL || "https://bible-devotion-api-aq14.onrender.com").replace(/\/$/, "");
 export const API_BASE_URL = `${configuredBaseUrl}/api/v1`;
 
 const api = axios.create({
