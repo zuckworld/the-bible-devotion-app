@@ -75,6 +75,24 @@ const planItems = [
 
 const weekDays = ["M", "T", "W", "T", "F", "S", "S"];
 const hymnLibrary = hymnData?.hymns || [];
+const validHomeRoutes = new Set([
+  "Notifications",
+  "Favorites",
+  "Plans",
+  "Prayer",
+  "Devotionals",
+  "Offline",
+  "Audio",
+  "Search",
+  "Bible",
+  "Reading",
+  "DevotionalDetail",
+  "AudioPlayer",
+]);
+
+const fallbackBibleVersions = [
+  { _id: "local-kjv", code: "KJV", name: "King James Version", description: "The default local edition bundled for instant offline reading." },
+];
 
 const premiumRows = [
   ["book-open-variant", "Prayerful courses, readings, audio", "Prepare your heart before the day starts."],
@@ -379,6 +397,11 @@ function HomeScreen({ navigation }) {
     devotionalAPI.getTodayDevotional().then(setToday).finally(() => setLoading(false));
   }, []);
 
+  const goToScreen = (routeName, params) => {
+    if (!routeName || !validHomeRoutes.has(routeName)) return;
+    navigation.navigate(routeName, params);
+  };
+
   const lastRead = bibleState.history[0];
   const streak = Math.max(1, Math.min(100, bibleState.history.length + devotionalState.readIds.length));
   const completion = Math.min(100, Math.round((streak / 30) * 100));
@@ -389,7 +412,7 @@ function HomeScreen({ navigation }) {
       <Header
         title={`Hi, ${firstName(session, profileState)}`}
         subtitle="Grow with God"
-        action={<Pressable onPress={() => navigation.navigate("Notifications")} style={styles.iconButton}><MaterialCommunityIcons name="bell-outline" size={24} color={currentTheme.colors.primary} /></Pressable>}
+        action={<Pressable onPress={() => goToScreen("Notifications")} style={styles.iconButton}><MaterialCommunityIcons name="bell-outline" size={24} color={currentTheme.colors.primary} /></Pressable>}
       />
       <View style={styles.weekRail}>
         {weekDays.map((day, index) => (
@@ -402,9 +425,9 @@ function HomeScreen({ navigation }) {
         <View style={styles.between}>
           <View>
             <Text variant="labelMedium" style={{ color: "#7C6D5C" }}>{todayLabel()}</Text>
-            <Text variant="headlineSmall" style={[styles.bold, { color: "#191714", marginTop: 4 }]}>Investing in heavenly treasure</Text>
+            {/* <Text variant="headlineSmall" style={[styles.bold, { color: "#191714", marginTop: 4 }]}>Investing in heavenly treasure</Text> */}
           </View>
-          <Pressable onPress={() => navigation.navigate("Favorites")} style={styles.iconButton}>
+          <Pressable onPress={() => goToScreen("Favorites")} style={styles.iconButton}>
             <MaterialCommunityIcons name="heart-outline" size={24} color="#191714" />
           </Pressable>
         </View>
@@ -412,7 +435,7 @@ function HomeScreen({ navigation }) {
         {loading ? (
           <View style={[styles.skeletonLine, { width: "90%", backgroundColor: "#E6DCCB", marginTop: 14 }]} />
         ) : (
-          <Pressable onPress={() => navigation.navigate("DevotionalDetail", { item: today })} style={styles.devotionalPreview}>
+          <Pressable onPress={() => { if (today) goToScreen("DevotionalDetail", { item: today }); }} style={styles.devotionalPreview}>
             <View style={styles.row}>
               <MaterialCommunityIcons name="feather" size={20} color={currentTheme.colors.primary} />
               <View style={styles.flex}>
@@ -424,47 +447,49 @@ function HomeScreen({ navigation }) {
           </Pressable>
         )}
         <View style={styles.dualActions}>
-          <Button mode="contained" icon="headphones" onPress={() => navigation.navigate("Audio")} style={styles.flex}>Listen</Button>
-          <Button mode="contained" buttonColor="#191714" icon="book-open-page-variant" onPress={() => navigation.navigate("DevotionalDetail", { item: today })} style={styles.flex}>Read</Button>
+          <Button mode="contained" icon="headphones" onPress={() => goToScreen("Audio")} style={styles.flex}>Listen</Button>
+          <Button mode="contained" buttonColor="#191714" icon="book-open-page-variant" onPress={() => { if (today) goToScreen("DevotionalDetail", { item: today }); }} style={styles.flex}>Read</Button>
         </View>
       </LinearGradient>
       <View style={styles.gridTwo}>
-        <Pressable onPress={() => navigation.navigate(lastRead ? "Reading" : "Bible", lastRead || undefined)} style={[styles.quickCard, { backgroundColor: currentTheme.colors.surface }]}>
+        <Pressable onPress={() => goToScreen(lastRead ? "Reading" : "Bible", lastRead || undefined)} style={[styles.quickCard, { backgroundColor: currentTheme.colors.surface }]}>
           <MaterialCommunityIcons name="book-open-variant" size={26} color={currentTheme.colors.primary} />
           <Text variant="titleSmall" style={[styles.bold, { marginTop: 8 }]}>Continue</Text>
           <Text variant="bodySmall" style={styles.muted}>{lastRead ? `${lastRead.book} ${lastRead.chapter}` : "Genesis 1"}</Text>
         </Pressable>
-        <Pressable onPress={() => navigation.navigate("Plans")} style={[styles.quickCard, { backgroundColor: currentTheme.colors.surface }]}>
+        <Pressable onPress={() => goToScreen("Plans")} style={[styles.quickCard, { backgroundColor: currentTheme.colors.surface }]}>
           <MaterialCommunityIcons name="fire" size={26} color={currentTheme.colors.primary} />
           <Text variant="titleSmall" style={[styles.bold, { marginTop: 8 }]}>Streak</Text>
           <Text variant="bodySmall" style={styles.muted}>{streak} spiritual actions</Text>
           <View style={styles.miniProgress}><View style={[styles.miniProgressFill, { width: `${completion}%` }]} /></View>
         </Pressable>
-        <Pressable onPress={() => navigation.navigate("Prayer")} style={[styles.quickCard, { backgroundColor: currentTheme.colors.surface }]}>
+        <Pressable onPress={() => goToScreen("Prayer")} style={[styles.quickCard, { backgroundColor: currentTheme.colors.surface }]}>
           <MaterialCommunityIcons name="hands-pray" size={26} color={currentTheme.colors.primary} />
           <Text variant="titleSmall" style={[styles.bold, { marginTop: 8 }]}>Prayer focus</Text>
           <Text variant="bodySmall" style={styles.muted}>Wisdom, purity, and courage</Text>
         </Pressable>
-        <Pressable onPress={() => navigation.navigate("AudioPlayer")} style={[styles.quickCard, { backgroundColor: currentTheme.colors.surface }]}>
+        <Pressable onPress={() => goToScreen("AudioPlayer")} style={[styles.quickCard, { backgroundColor: currentTheme.colors.surface }]}>
           <MaterialCommunityIcons name="history" size={26} color={currentTheme.colors.primary} />
           <Text variant="titleSmall" style={[styles.bold, { marginTop: 8 }]}>Recent</Text>
           <Text variant="bodySmall" style={styles.muted}>{audioState.currentTrack?.title || "No audio yet"}</Text>
         </Pressable>
       </View>
-      <Button mode="outlined" icon="magnify" onPress={() => navigation.navigate("Search")}>Search Bible, devotionals, audio, and notes</Button>
+      <View style={{ marginBottom: 12 }}>
+        <Button mode="outlined" icon="magnify" onPress={() => goToScreen("Search")}>Search Bible, devotionals, audio, and notes</Button>
+      </View>
       {loading ? <SkeletonCard /> : (
-        <Card style={[styles.card, { backgroundColor: currentTheme.colors.surface }]}>
+        <Card style={[styles.card, { backgroundColor: currentTheme.colors.surface }]}> 
           <Card.Content>
             <View style={styles.between}>
               <Chip icon="book-heart">Today</Chip>
-              <Button compact onPress={() => navigation.navigate("Devotionals")}>Explore</Button>
+              <Button compact onPress={() => { if (today) goToScreen("Devotionals"); }}>Explore</Button>
             </View>
             <Text variant="titleLarge" style={[styles.bold, { marginTop: 14 }]}>Verse of the day</Text>
             <Text variant="bodyMedium" style={styles.muted}>{today?.verse || "Your daily devotional library is ready."}</Text>
           </Card.Content>
         </Card>
       )}
-      <Button mode="outlined" icon="wifi-off" onPress={() => navigation.navigate("Offline")}>Offline mode and downloads</Button>
+      <Button mode="outlined" icon="wifi-off" onPress={() => goToScreen("Offline")}>Offline mode and downloads</Button>
     </Screen>
   );
 }
@@ -474,11 +499,15 @@ function BibleScreen({ navigation }) {
   const { bibleState, updateBiblePreferences } = useAppState();
   const localBooks = useBooks();
   const [query, setQuery] = useState("");
-  const [versions, setVersions] = useState([]);
+  const [versions, setVersions] = useState(fallbackBibleVersions);
   const [backendBooks, setBackendBooks] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [loadingBooks, setLoadingBooks] = useState(false);
-  const [selectedVersionId, setSelectedVersionId] = useState(bibleState.selectedBibleVersionId);
+  const [selectedVersionId, setSelectedVersionId] = useState(
+    bibleState.selectedBibleVersionId ||
+      fallbackBibleVersions.find((version) => version.code === (bibleState.translation || "KJV"))?._id ||
+      fallbackBibleVersions[0]._id
+  );
   const [versionDialogVisible, setVersionDialogVisible] = useState(false);
 
   useEffect(() => {
@@ -487,20 +516,33 @@ function BibleScreen({ navigation }) {
       setLoadingVersions(true);
       const remoteVersions = await bibleAPI.getVersions();
       if (!active) return;
-      setVersions(remoteVersions || []);
-      const preferred =
-        remoteVersions.find((version) => version._id === bibleState.selectedBibleVersionId) ||
-        remoteVersions.find((version) => version.code === bibleState.translation) ||
-        remoteVersions[0];
+
+      const resolvedVersions = (remoteVersions && remoteVersions.length ? remoteVersions : fallbackBibleVersions).map((version) => ({
+        ...version,
+        _id: version._id || version.id || version.code,
+        code: version.code || version.name || "KJV",
+      }));
+
+      const validPreferredId =
+        resolvedVersions.find((version) => version._id === bibleState.selectedBibleVersionId && !String(version._id).startsWith("local-")) ||
+        resolvedVersions.find((version) => version.code === bibleState.translation) ||
+        resolvedVersions[0];
+
+      setVersions(resolvedVersions);
+      const preferred = validPreferredId || resolvedVersions[0];
+
       if (preferred) {
-        setSelectedVersionId(preferred._id);
+        const preferredId = preferred._id;
+        const preferredCode = preferred.code;
+        setSelectedVersionId(preferredId);
         if (
-          bibleState.selectedBibleVersionId !== preferred._id ||
-          bibleState.translation !== preferred.code
+          String(bibleState.selectedBibleVersionId || "").startsWith("local-") ||
+          bibleState.selectedBibleVersionId !== preferredId ||
+          bibleState.translation !== preferredCode
         ) {
           updateBiblePreferences({
-            selectedBibleVersionId: preferred._id,
-            translation: preferred.code,
+            selectedBibleVersionId: preferredId,
+            translation: preferredCode,
           });
         }
       }
@@ -515,6 +557,13 @@ function BibleScreen({ navigation }) {
 
   useEffect(() => {
     if (!selectedVersionId) return;
+    const isLocalOnlySelection = typeof selectedVersionId === "string" && selectedVersionId.startsWith("local-");
+    if (isLocalOnlySelection) {
+      setBackendBooks([]);
+      setLoadingBooks(false);
+      return;
+    }
+
     let active = true;
     async function loadBooks() {
       setLoadingBooks(true);
@@ -536,8 +585,8 @@ function BibleScreen({ navigation }) {
   const filtered = books.filter((book) => (book.name || "").toLowerCase().includes(query.toLowerCase()));
 
   return (
-    <Screen scroll={false} padded={false}>
-      <View style={styles.screenPadding}>
+    <Screen scroll={false} padded={false} style={styles.flex}>
+      <View style={[styles.screenPadding, { paddingBottom: 6 }]}> 
         <Header title="Bible" subtitle={`Free ${translationLabel} access with search, history, bookmarks, and highlights.`} />
         <Card style={[styles.card, { marginBottom: 10 }]}> 
           <Card.Content style={styles.between}>
@@ -554,34 +603,37 @@ function BibleScreen({ navigation }) {
         <Text variant="bodySmall" style={[styles.muted, { marginBottom: 10 }]}> 
           {loadingVersions ? "Connecting to available translations..." : versions.length ? "Live translation content is ready for this selection." : "Using the local KJV library for now."}
         </Text>
-        <Searchbar placeholder="Search books" value={query} onChangeText={setQuery} style={{ backgroundColor: currentTheme.colors.surface }} />
+        <Searchbar placeholder="Search books" value={query} onChangeText={setQuery} style={[{ backgroundColor: currentTheme.colors.surface, marginBottom: 10 }, styles.searchbar]} />
       </View>
-      <FlatList
-        data={filtered}
-        keyExtractor={(item, index) => item.abbrev || item._id || `${item.name}-${index}`}
-        contentContainerStyle={[styles.listContent, { paddingBottom: 150 }]}
-        renderItem={({ item }) => (
-          <Card
-            style={styles.listCard}
-            onPress={() =>
-              navigation.navigate("Reading", {
-                bookItem: item,
-                bookTitle: item.name,
-                chapterIndex: 0,
-                versionId: selectedVersionId,
-              })
-            }
-          >
-            <Card.Content style={styles.between}>
-              <View>
-                <Text variant="titleMedium" style={styles.bold}>{item.name}</Text>
-                <Text variant="bodySmall" style={styles.muted}>{item.chapters?.length || item.chapterCount || 0} chapters</Text>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={24} color={currentTheme.colors.primary} />
-            </Card.Content>
-          </Card>
-        )}
-      />
+      <View style={styles.flex}>
+        <FlatList
+          data={filtered}
+          keyExtractor={(item, index) => item.abbrev || item._id || `${item.name}-${index}`}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 150 }]}
+          renderItem={({ item }) => (
+            <Card
+              style={styles.listCard}
+              onPress={() =>
+                navigation.navigate("Reading", {
+                  bookItem: item,
+                  bookTitle: item.name,
+                  chapterIndex: 0,
+                  versionId: selectedVersionId,
+                  versionCode: selectedVersion?.code || bibleState.translation || "KJV",
+                })
+              }
+            >
+              <Card.Content style={styles.between}>
+                <View>
+                  <Text variant="titleMedium" style={styles.bold}>{item.name}</Text>
+                  <Text variant="bodySmall" style={styles.muted}>{item.chapters?.length || item.chapterCount || 0} chapters</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={24} color={currentTheme.colors.primary} />
+              </Card.Content>
+            </Card>
+          )}
+        />
+      </View>
       <Portal>
         <Modal visible={versionDialogVisible} onDismiss={() => setVersionDialogVisible(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: currentTheme.colors.surface }]}>
           <Text variant="titleLarge" style={[styles.bold, { marginBottom: 14 }]}>Choose translation</Text>
@@ -1180,7 +1232,8 @@ function ManageGiftsScreen({ navigation }) {
 function ReadingScreen({ route, navigation }) {
   const { bibleState, addReadingHistory, toggleVerseBookmark, toggleVerseHighlight, updateBiblePreferences } = useAppState();
   const { currentTheme } = useContext(PaperThemeContext);
-  const { bookItem, bookTitle, versionId } = route.params || {};
+  const { bookItem, bookTitle, versionId, versionCode } = route.params || {};
+  const activeVersionCode = versionCode || bibleState.translation || "KJV";
   const localBooks = useBooks();
   const localChapters = bookItem?.chapters || [];
   const [loadedChapters, setLoadedChapters] = useState([]);
@@ -1204,9 +1257,15 @@ function ReadingScreen({ route, navigation }) {
     let active = true;
 
     async function loadRemoteChapters() {
-      if (localChapters.length || !bookItem?._id) {
+      const isLocalOnlySelection = typeof versionId === "string" && versionId.startsWith("local-");
+      const shouldUseLocalKJV = isLocalOnlySelection || activeVersionCode === "KJV";
+      if (localChapters.length || !bookItem?._id || shouldUseLocalKJV) {
         setLoadedChapters([]);
-        setStatusMessage(localChapters.length ? "Showing the built-in text for this chapter." : "No live Bible data was available yet.");
+        if (!shouldUseLocalKJV && activeVersionCode !== "KJV") {
+          setStatusMessage(`The ${activeVersionCode} edition is not available offline right now, so KJV is being shown instead.`);
+        } else {
+          setStatusMessage(localChapters.length ? "Showing the built-in text for this chapter." : "No live Bible data was available yet.");
+        }
         return;
       }
 
@@ -1422,25 +1481,23 @@ function AudioPlayerScreen({ route }) {
   );
 }
 
-function UtilityScreen({ route, navigation }) {
-  const { isPremium, bibleState, audioState, devotionalState, profileState, addPrayerEntry, updateProfile, session } = useAppState();
-  const name = route.name;
-  const premium = ["Downloads", "Plans", "Prayer", "Assistant", "Prayer Journal"].includes(name);
-  const locked = false; // App is now fully free: disable premium locking
+function FeaturePlaceholderScreen({ route, navigation }) {
+  const { bibleState, audioState, devotionalState, profileState, addPrayerEntry, updateProfile, session } = useAppState();
+  const name = route?.name || "Feature";
   const [draft, setDraft] = useState("");
   const [displayName, setDisplayName] = useState(firstName(session, profileState));
 
   const contentMap = {
     Bookmarks: bibleState.bookmarks.concat(devotionalState.bookmarks),
     Favorites: bibleState.bookmarks.concat(devotionalState.bookmarks),
-    Downloads: audioState.downloaded,
-    Plans: planItems,
-    Notifications: Object.entries(profileState.notificationPrefs).map(([key, value]) => ({ id: key, title: key.replace(/([A-Z])/g, " $1"), body: value ? "Enabled" : "Disabled" })),
+    Downloads: audioState.downloaded.length ? audioState.downloaded : [{ id: "empty-downloads", title: "No downloads yet", body: "Saved Bible passages and audio will appear here." }],
+    Plans: planItems.length ? planItems : [{ id: "empty-plans", title: "No reading plans yet", body: "Your spiritual growth plans will appear here." }],
+    Notifications: Object.entries(profileState.notificationPrefs || {}).map(([key, value]) => ({ id: key, title: key.replace(/([A-Z])/g, " $1"), body: value ? "Enabled" : "Disabled" })),
     Support: [{ id: "help", title: "Help & support", body: "FAQ, contact, privacy, and feedback channels are wired as app screens." }],
     Offline: [{ id: "offline", title: "Offline mode", body: "Bible content and downloaded media are available offline when saved." }],
     Prayer: [{ id: "journal", title: "Prayer focus", body: "Wisdom, purity, courage, and daily obedience." }],
-    "Prayer Journal": profileState.prayerJournal,
-    "Saved Notes": bibleState.notes,
+    "Prayer Journal": profileState.prayerJournal && profileState.prayerJournal.length ? profileState.prayerJournal : [{ id: "empty-prayer", title: "No prayer entries yet", body: "Write your first prayer note from this screen." }],
+    "Saved Notes": bibleState.notes.length ? bibleState.notes : [{ id: "empty-notes", title: "No saved notes yet", body: "Your Bible notes and reflections will appear here." }],
     "Reading Stats": [
       { id: "history", title: "Bible chapters opened", body: `${bibleState.history.length}` },
       { id: "devotional", title: "Devotionals read", body: `${devotionalState.readIds.length}` },
@@ -1448,16 +1505,13 @@ function UtilityScreen({ route, navigation }) {
     ],
     "Change Password": [{ id: "password", title: "Password security", body: "Current password, new password, and reset-token backend hooks are ready for API wiring." }],
     "Edit Profile": [],
-    Devotionals: devotionalState.bookmarks,
-    Sermons: audioTracks,
+    Devotionals: devotionalState.bookmarks.length ? devotionalState.bookmarks : [{ id: "empty-devotionals", title: "No devotional bookmarks yet", body: "Tap a devotional to save it here for quick access." }],
+    Sermons: audioState.recentlyPlayed.length ? audioState.recentlyPlayed : [{ id: "empty-sermons", title: "No recent sermons", body: "Your recently played audio will appear here." }],
     Assistant: [{ id: "ai", title: "AI devotional assistant", body: "Personalized recommendations and guided reflection placeholder." }],
   };
 
-  if (locked) {
-    return <Screen><Header back title={name} /><LockedCard title={`${name} is Premium`} body="Upgrade to unlock this experience." onUpgrade={() => navigation.navigate("Paywall")} /></Screen>;
-  }
+  const items = contentMap[name] || [{ id: `empty-${name}`, title: `${name}`, body: "This feature is ready for the next stage of the app flow." }];
 
-  const items = contentMap[name] || [];
   return (
     <Screen>
       <Header back title={name} subtitle={name === "Downloads" ? "Offline-ready premium content." : undefined} />
@@ -1479,20 +1533,20 @@ function UtilityScreen({ route, navigation }) {
           </Card.Content>
         </Card>
       )}
-      {items.length === 0 && name !== "Edit Profile" ? (
-        <EmptyState title={`No ${name.toLowerCase()} yet`} body="Your saved content will appear here as you use the app." />
-      ) : (
-        items.map((item) => (
-          <Card key={item.key || item.id || item.title} style={styles.card}>
-            <Card.Content>
-              <Text variant="titleMedium" style={styles.bold}>{item.title || `${item.book} ${item.chapter}:${item.verse}`}</Text>
-              <Text variant="bodyMedium" style={styles.muted}>{item.body || item.note || item.text || `${item.type || ""} ${item.duration || ""}`}</Text>
-            </Card.Content>
-          </Card>
-        ))
-      )}
+      {items.map((item) => (
+        <Card key={item.key || item.id || item.title || name} style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.bold}>{item.title || `${item.book} ${item.chapter}:${item.verse}`}</Text>
+            <Text variant="bodyMedium" style={styles.muted}>{item.body || item.note || item.text || `${item.type || ""} ${item.duration || ""}`}</Text>
+          </Card.Content>
+        </Card>
+      ))}
     </Screen>
   );
+}
+
+function UtilityScreen({ route, navigation }) {
+  return <FeaturePlaceholderScreen route={route} navigation={navigation} />;
 }
 
 function SettingsScreen() {
@@ -1788,6 +1842,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: 12, marginBottom: 12 },
   listCard: { borderRadius: 12, marginHorizontal: 16, marginBottom: 10 },
   listContent: { paddingTop: 6 },
+  searchbar: { borderRadius: 12 },
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
   between: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   iconButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },

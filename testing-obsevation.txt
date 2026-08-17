@@ -1,0 +1,22 @@
+this file contains my observation while testing the mobile app in dev mode, and i noticed a lot of bugs that i need copilot to fix
+i will list them below
+
+HOMESCREEN
+On the home screen some links are opening blank screens and that is a problem e.g the notification bell icon at the top
+when i click on it, it opens a blank screen, i checked the code it is supposed to navigate to a notification screen but i don't think it exist yet, 
+so identify what that button is supposed to do or where it is supposed to navigate to and fix it, if it is irrelivant for 
+now then it should not navigate to a blank screen, that is a broken link which is not good for a mobile app.
+Other broken links on the HomeScreen are: the Streak card, Prayer focus card, the verse of the day card, when i click on explore also blank screen
+Lastly the Offline mode and downloads button too also navigates to a blank screen 
+Now there is no margin bottom between the search button and the verse of the day card so fix that too
+So we will debug it screen by screen so that you will not miss out anything when you are done with HomeScreen i will test other screens and write don the bugs in this same file..
+
+BIBLE SCREEN
+For this screen just two major issues
+first one the the screen is not scrolling down i don't know why so i cannot see the other books of the bible 
+except Genesis, exodus and leveticus, but if i search for any book it comes out so the search function works well, the search bar just needs a little more margin bottom
+Secondly which is a big problem when i try to change the Bible translation and i click on the change button
+it opens the modal where i can choose other translation but it just keeps loading, it's not showing other translations
+i suspect it's because the other translations are in the backend folder, i put only KJV in the mobile app assets folder for offline support since that is the default 
+version but there should be an option to call other versions too, you can check that app master prompt to confirm the setup
+
