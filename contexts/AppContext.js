@@ -23,6 +23,7 @@ const defaultSubscription = {
 
 const defaultBibleState = {
   bookmarks: [],
+  downloads: [],
   highlights: [],
   notes: [],
   history: [],
@@ -119,6 +120,21 @@ export function AppStateProvider({ children }) {
   useEffect(() => {
     if (booted) AsyncStorage.setItem(STORAGE_KEYS.audio, JSON.stringify(audioState));
   }, [booted, audioState]);
+
+  useEffect(() => {
+    if (!audioState.isPlaying || !audioState.duration) return undefined;
+
+    const timer = setInterval(() => {
+      setAudioState((current) => {
+        const nextPosition = Math.min(current.duration, current.position + 1);
+        return nextPosition >= current.duration
+          ? { ...current, position: nextPosition, isPlaying: false }
+          : { ...current, position: nextPosition };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [audioState.isPlaying, audioState.duration]);
 
   useEffect(() => {
     if (booted) AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(profileState));
@@ -267,7 +283,7 @@ export function AppStateProvider({ children }) {
       ...current,
       currentTrack: track,
       queue,
-      isPlaying: true,
+      isPlaying: false,
       position: 0,
       duration: track?.durationSeconds || current.duration,
       recentlyPlayed: track ? [track, ...current.recentlyPlayed.filter((item) => item.id !== track.id)].slice(0, 20) : current.recentlyPlayed,
@@ -276,6 +292,10 @@ export function AppStateProvider({ children }) {
 
   const togglePlayback = () => {
     setAudioState((current) => ({ ...current, isPlaying: !current.isPlaying }));
+  };
+
+  const stopPlayback = () => {
+    setAudioState((current) => ({ ...current, isPlaying: false, position: 0 }));
   };
 
   const seekAudio = (position) => {
@@ -297,8 +317,39 @@ export function AppStateProvider({ children }) {
     });
   };
 
+  const toggleBibleDownload = (passage) => {
+    if (!passage?.key) return;
+    setBibleState((current) => {
+      const exists = current.downloads.some((item) => item.key === passage.key);
+      return {
+        ...current,
+        downloads: exists ? current.downloads.filter((item) => item.key !== passage.key) : [passage, ...current.downloads],
+      };
+    });
+  };
+
+  const toggleDevotionalDownload = (item) => {
+    if (!item?.id) return;
+    setDevotionalState((current) => {
+      const exists = current.downloads.some((saved) => saved.id === item.id);
+      return {
+        ...current,
+        downloads: exists ? current.downloads.filter((saved) => saved.id !== item.id) : [item, ...current.downloads],
+      };
+    });
+  };
+
   const setAudioSpeed = (speed) => {
     setAudioState((current) => ({ ...current, speed }));
+  };
+
+  const clearTrack = () => {
+    setAudioState((current) => ({
+      ...current,
+      currentTrack: null,
+      isPlaying: false,
+      position: 0,
+    }));
   };
 
   const addPrayerEntry = (body) => {
@@ -365,9 +416,13 @@ export function AppStateProvider({ children }) {
       updateBiblePreferences,
       playTrack,
       togglePlayback,
+      stopPlayback,
       seekAudio,
       toggleDownload,
+      toggleBibleDownload,
+      toggleDevotionalDownload,
       setAudioSpeed,
+      clearTrack,
       addPrayerEntry,
       updateProfile,
       recordDevotionalRead,

@@ -20,3 +20,23 @@ it opens the modal where i can choose other translation but it just keeps loadin
 i suspect it's because the other translations are in the backend folder, i put only KJV in the mobile app assets folder for offline support since that is the default 
 version but there should be an option to call other versions too, you can check that app master prompt to confirm the setup
 
+HYMNS SCREEN
+the screen is not scrollable
+secondly when i select a particular hymn i think it is supposed to open the full hymn but that is not 
+working so can you inspect the code and fix it
+
+SEARCH SCREEN 
+for the search screen just this error in console
+C:\Users\user\Downloads\Devotion App\heart-to-heart-mobile-app\services\api.js:105  
+GET https://bible-devotion-api-aq14.onrender.com/api/v1/devotionals/weekly 500 (Internal Server Error)
+
+DEVOTIONAL SCREEN
+C:\Users\user\Downloads\Devotion App\heart-to-heart-mobile-app\services\api.js:105  
+GET https://bible-devotion-api-aq14.onrender.com/api/v1/devotionals/month/MAY 404 (Not Found)
+C:\Users\user\Downloads\Devotion App\heart-to-heart-mobile-app\services\api.js:105  
+GET https://bible-devotion-api-aq14.onrender.com/api/v1/devotionals/weekly 500 (Internal Server Error)
+i have pushed the backend so it will redeploy but did you fix this error?
+
+Now still on the devotional, the audio devotion is still using mock value and if you check the devotional-app-changes-master-prompt.md in phase 13
+you will see what i'm trying to achieve so check that file and confirm what i want also inspect the audio screen setup and find what needs to be fixed
+that audio devotional popup that shows on top of the footbar can you put a button that can hide or close it

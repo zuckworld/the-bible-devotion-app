@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
-import { View, ScrollView, StyleSheet, Share } from "react-native";
+import { View, ScrollView, StyleSheet, Share, FlatList } from "react-native";
 import {
   Card,
   Text,
@@ -201,27 +201,37 @@ export default function DevotionalScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Monthly Devotionals Grid */}
+      {/* Monthly Devotionals: horizontal day scroller */}
       <View style={{ paddingHorizontal: 16, marginVertical: 12 }}>
-        <Text
-          variant="titleMedium"
-          style={{ color: currentTheme.colors.onBackground, fontWeight: "700", marginBottom: 12 }}
-        >
-          {selectedMonth} Devotions
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <Text
+            variant="titleMedium"
+            style={{ color: currentTheme.colors.onBackground, fontWeight: "700" }}
+          >
+            {selectedMonth} Devotions
+          </Text>
+          <Button onPress={() => navigation.navigate('MonthDevotional', { month: selectedMonth })} compact>
+            See all
+          </Button>
+        </View>
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {devotionalsForMonth.slice(0, 31).map((dev, index) => (
+        <FlatList
+          horizontal
+          data={devotionalsForMonth.slice(0, 31)}
+          keyExtractor={(_, i) => String(i)}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingVertical: 4 }}
+          renderItem={({ item }) => (
             <Card
-              key={index}
               style={[
                 styles.dayCard,
                 {
                   backgroundColor: currentTheme.colors.surfaceVariant,
-                  flex: 0.48,
+                  width: 84,
+                  marginRight: 10,
                 },
               ]}
-              onPress={() => handleReadDevotional(dev)}
+              onPress={() => handleReadDevotional(item)}
             >
               <Card.Content
                 style={{
@@ -235,10 +245,10 @@ export default function DevotionalScreen({ navigation }) {
                   style={{
                     color: currentTheme.colors.primary,
                     fontWeight: "700",
-                    fontSize: 20,
+                    fontSize: 22,
                   }}
                 >
-                  {dev.day}
+                  {String(item.day).padStart(2, '0')}
                 </Text>
                 <Divider style={{ marginVertical: 8, width: "80%" }} />
                 <Text
@@ -250,12 +260,12 @@ export default function DevotionalScreen({ navigation }) {
                   }}
                   numberOfLines={2}
                 >
-                  {dev.title.substring(0, 20)}...
+                  {item.title}
                 </Text>
               </Card.Content>
             </Card>
-          ))}
-        </View>
+          )}
+        />
       </View>
 
       <View style={{ height: 80 }} />

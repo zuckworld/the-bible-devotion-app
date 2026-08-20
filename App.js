@@ -36,6 +36,7 @@ import {
   TextInput,
 } from "react-native-paper";
 import { WebView } from 'react-native-webview';
+import * as Speech from 'expo-speech';
 import BookmarkProvider from "./bookmarks/BookmarkContext";
 import { AppStateProvider, useAppState } from "./contexts/AppContext";
 import { PaperThemeProvider, PaperThemeContext } from "./components/PaperThemeContext";
@@ -47,25 +48,13 @@ import hymnData from "./assets/hymns.json";
 import ConnectWithUs from "./screens/ConnectWithUs";
 import ExternalAuthScreen from "./screens/AuthScreen";
 import FAQScreen from "./screens/FAQScreen";
+import DevotionalScreen from "./screens/DevotionalScreen";
+import MonthDevotionalScreen from "./screens/MonthDevotionalScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-const premiumFeatures = {
-  Devotionals: "Daily devotionals, prayers, confessions, and reflection notes.",
-  Audio: "Audio devotionals, sermons, podcasts, worship playlists, and background playback.",
-  Plans: "Guided reading plans with streaks, milestones, and offline access.",
-  Prayer: "Prayer guides, private journal prompts, and AI devotional assistance.",
-  Downloads: "Save devotionals, audio, plans, and playlists for offline use.",
-  Assistant: "Personalized devotional recommendations and AI faith companion.",
-};
-
-const defaultAudioTracks = [
-  { id: "daily-audio", title: "Today's Audio Devotional", host: "Heart to Heart", duration: "12:40", durationSeconds: 760, type: "Devotional", description: "A gentle daily devotion to start the day with Scripture and prayer." },
-  { id: "sermon-grace", title: "Grace for the Quiet Place", host: "P. Olawoyin", duration: "34:15", durationSeconds: 2055, type: "Sermon", description: "A reflective sermon for peace, patience, and spiritual focus." },
-  { id: "podcast-prayer", title: "Prayer That Shapes the Morning", host: "H2H Podcast", duration: "22:08", durationSeconds: 1328, type: "Podcast", description: "A guided prayer and journaling episode for the morning routine." },
-  { id: "worship-still", title: "Still Waters Worship", host: "Premium Worship", duration: "18:02", durationSeconds: 1082, type: "Playlist", description: "A worship playlist for rest, reflection, and praise." },
-];
+// premium features removed — app is free; premium hub cleaned up
 
 const planItems = [
   { id: "fasting", title: "21 Days of Consecration", progress: 35, days: 21 },
@@ -670,6 +659,7 @@ function HymnsScreen() {
   const { currentTheme } = useContext(PaperThemeContext);
   const [query, setQuery] = useState("");
   const [selectedHymn, setSelectedHymn] = useState(hymnLibrary[0] || null);
+  const navigation = useNavigation();
 
   const filteredHymns = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -688,7 +678,7 @@ function HymnsScreen() {
   }, [filteredHymns, selectedHymn]);
 
   return (
-    <Screen scroll={false} padded={false}>
+    <Screen scroll={true} padded={false}>
       <View style={styles.screenPadding}>
         <Header title="Hymns" subtitle="Classic worship songs, prayerful choruses, and devotional favorites." />
         <Searchbar placeholder="Search hymns" value={query} onChangeText={setQuery} style={{ backgroundColor: currentTheme.colors.surface }} />
@@ -697,16 +687,17 @@ function HymnsScreen() {
             <Text variant="labelLarge" style={[styles.bold, { color: currentTheme.colors.primary }]}>Featured hymn</Text>
             <Text variant="titleMedium" style={[styles.bold, { marginTop: 6 }]}>{selectedHymn?.title || "No hymn found"}</Text>
             <Text variant="bodySmall" style={styles.muted}>{selectedHymn?.author_composer || "Try another search term."}</Text>
+            {selectedHymn?.story ? <Text variant="bodySmall" style={[styles.muted, { marginTop: 8 }]}>{selectedHymn.story}</Text> : null}
           </Card.Content>
         </Card>
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}>
         {filteredHymns.map((hymn) => (
-          <Card key={hymn.title} style={[styles.listCard, selectedHymn?.title === hymn.title && { borderColor: currentTheme.colors.primary, borderWidth: 1.2 }]} onPress={() => setSelectedHymn(hymn)}>
+          <Card key={hymn.title} style={[styles.listCard, selectedHymn?.title === hymn.title && { borderColor: currentTheme.colors.primary, borderWidth: 1.2 }]} onPress={() => { setSelectedHymn(hymn); navigation.navigate('HymnDetail', { hymn }); }}>
             <Card.Content>
               <Text variant="titleMedium" style={styles.bold}>{hymn.title}</Text>
               <Text variant="bodySmall" style={styles.muted}>{hymn.author_composer}</Text>
-              <Text variant="bodySmall" style={[styles.muted, { marginTop: 8 }]} numberOfLines={2}>{hymn.story}</Text>
+              {hymn.story ? <Text variant="bodySmall" style={[styles.muted, { marginTop: 8 }]}>{hymn.story}</Text> : null}
             </Card.Content>
           </Card>
         ))}
@@ -723,6 +714,30 @@ function HymnsScreen() {
             </Card.Content>
           </Card>
         )}
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function HymnDetailScreen({ route }) {
+  const { hymn } = route.params || {};
+  const { currentTheme } = useContext(PaperThemeContext);
+
+  return (
+    <Screen>
+      <Header back title={hymn?.title || 'Hymn'} subtitle={hymn?.author_composer} />
+      <ScrollView style={styles.flex} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}>
+        <Card style={[styles.card, styles.hymnDetailCard]}>
+          <Card.Content>
+            <Text variant="titleLarge" style={[styles.bold, { marginBottom: 6 }]}>{hymn?.title}</Text>
+            <Text variant="bodyMedium" style={styles.muted}>{hymn?.author_composer}</Text>
+            {hymn?.lyrics ? (
+              <Text variant="bodyMedium" style={{ marginTop: 12, lineHeight: 24 }}>{hymn.lyrics}</Text>
+            ) : (
+              <Text variant="bodyMedium" style={{ marginTop: 12, lineHeight: 24 }}>{hymn?.note || 'Full lyrics will be added as more hymn content is curated for this module.'}</Text>
+            )}
+          </Card.Content>
+        </Card>
       </ScrollView>
     </Screen>
   );
@@ -753,12 +768,18 @@ function SearchScreen({ navigation }) {
       });
     });
     devotionals.forEach((item) => {
-      const haystack = `${item.title} ${item.verse} ${item.body}`.toLowerCase();
-      if (haystack.includes(needle) && found.length < 80) {
-        found.push({ key: `devotional-${item.id}`, type: "Devotional", title: item.title, text: item.body, item });
+      const haystack = `${item.title} ${item.verse} ${item.body || item.fullBody} ${item.confession} ${item.prayer}`.toLowerCase();
+      if (haystack.includes(needle) && found.length < 100) {
+        found.push({ key: `devotional-${item.id}`, type: "Devotional", title: item.title, text: item.fullBody || item.body || item.verse, item });
       }
     });
-    defaultAudioTracks.concat(audioState.recentlyPlayed || []).forEach((track) => {
+    hymnLibrary.forEach((hymn) => {
+      const haystack = `${hymn.title} ${hymn.author_composer} ${hymn.story || ""} ${hymn.lyrics || ""}`.toLowerCase();
+      if (haystack.includes(needle) && found.length < 100) {
+        found.push({ key: `hymn-${hymn.title}`, type: "Hymn", title: hymn.title, text: hymn.lyrics || hymn.story || hymn.author_composer, hymn });
+      }
+    });
+    (audioState.recentlyPlayed || []).forEach((track) => {
       const haystack = `${track.title} ${track.host} ${track.type}`.toLowerCase();
       if (haystack.includes(needle) && found.length < 90) {
         found.push({ key: `audio-${track.id}`, type: "Audio", title: track.title, text: `${track.type} - ${track.duration}`, track });
@@ -773,103 +794,98 @@ function SearchScreen({ navigation }) {
     return found;
   }, [books, query, devotionals, isPremium, bibleState.notes, audioState.recentlyPlayed]);
 
+  const openResult = (item) => {
+    if (item.type === "Devotional") navigation.navigate("DevotionalDetail", { item: item.item });
+    else if (item.type === "Hymn") navigation.navigate("HymnDetail", { hymn: item.hymn });
+    else if (item.type === "Audio") navigation.navigate("AudioPlayer", { track: item.track });
+    else navigation.navigate("Reading", { bookItem: item.bookItem || item.note?.bookItem, bookTitle: item.book || item.note?.bookTitle, chapterIndex: (item.chapter || item.note?.chapter || 1) - 1 });
+  };
+
   return (
-    <Screen scroll={false} padded={false}>
+    <Screen scroll={false} padded={false} style={styles.flex}>
       <View style={styles.screenPadding}>
         <Header title="Search" subtitle="Verse search is free and local." />
-        <Searchbar placeholder="Search a verse or phrase" value={query} onChangeText={setQuery} />
+        <Searchbar placeholder="Search verses, devotionals, or hymns" value={query} onChangeText={setQuery} />
       </View>
       {query.length < 2 ? (
-        <View style={styles.screenPadding}><EmptyState icon="magnify" title="Search scripture" body="Type at least two characters to search across the Bible." /></View>
+        <View style={styles.screenPadding}><EmptyState icon="magnify" title="Search your library" body="Type at least two characters to search verses, devotionals, and hymns." /></View>
       ) : (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.key}
+        <ScrollView
+          style={styles.flex}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.listContent, { paddingBottom: 150 }]}
-          ListEmptyComponent={<EmptyState title="No verses found" body="Try a different word or phrase." />}
-          renderItem={({ item }) => (
-            <Card
-              style={styles.listCard}
-              onPress={() => {
-                  if (item.type === "Devotional") navigation.navigate("DevotionalDetail", { item: item.item });
-                  else if (item.type === "Audio") navigation.navigate("AudioPlayer", { track: item.track });
-                  else navigation.navigate("Reading", { bookItem: item.bookItem || item.note?.bookItem, bookTitle: item.book || item.note?.bookTitle, chapterIndex: (item.chapter || item.note?.chapter || 1) - 1 });
-                }
-              }
-            >
+        >
+          {results.length ? results.map((item) => (
+            <Card key={item.key} style={styles.listCard} onPress={() => openResult(item)}>
               <Card.Content>
                 <Text variant="labelMedium" style={styles.bold}>{item.type ? `${item.type}: ${item.title}` : `${item.book} ${item.chapter}:${item.verse}`}</Text>
                 <Text variant="bodyMedium" style={styles.muted}>{item.text}</Text>
               </Card.Content>
             </Card>
-          )}
-        />
+          )) : <EmptyState title="No results found" body="Try a different word or phrase." />}
+        </ScrollView>
       )}
     </Screen>
   );
 }
 
-function PremiumHubScreen({ navigation }) {
-  const { isPremium } = useAppState();
-  const [today, setToday] = useState(null);
+// Premium hub removed — the app is fully free and Devotionals is available in the main tabs.
 
-  useEffect(() => {
-    devotionalAPI.getTodayDevotional().then(setToday);
-  }, []);
-
-  return (
-    <Screen>
-      <Header title="Premium" subtitle={"Your devotional library is unlocked."} />
-      <Card style={styles.card} onPress={() => navigation.navigate("DevotionalDetail", { item: today })}>
-        <Card.Content>
-          <Chip icon="book-heart">Today</Chip>
-          <Text variant="titleLarge" style={[styles.bold, { marginTop: 12 }]}>{today?.title || "Today's Devotional"}</Text>
-          <Text variant="bodyMedium" style={styles.muted} numberOfLines={8}>{today?.body || "Loading devotional..."}</Text>
-        </Card.Content>
-      </Card>
-      {Object.entries(premiumFeatures).map(([title, body]) => (
-        <List.Item
-          key={title}
-          title={title}
-          description={body}
-          onPress={() => navigation.navigate(title)}
-          left={() => <MaterialCommunityIcons name={"check-circle"} size={24} color="#E94E77" />}
-          right={() => <MaterialCommunityIcons name="chevron-right" size={22} color="#999" />}
-        />
-      ))}
-    </Screen>
-  );
-}
-
-function AudioScreen({ navigation }) {
+function AudioScreen({ route, navigation }) {
   const { playTrack } = useAppState();
-  const [tracks, setTracks] = useState(defaultAudioTracks);
+  const [tracks, setTracks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-    audioAPI.getLibrary().then((items) => {
+    const selectedDevotional = route.params?.item;
+    setLoading(true);
+    setError("");
+    Promise.all([selectedDevotional ? Promise.resolve(selectedDevotional) : devotionalAPI.getTodayDevotional(), audioAPI.getLibrary()]).then(([devotional, items]) => {
       if (!active) return;
-      const nextTracks = Array.isArray(items) && items.length ? items.map((item, index) => ({
+      const devotionalTrack = devotional ? {
+        id: `devotional-${devotional.id}`,
+        title: devotional.title || "Today's Audio Devotional",
+        host: 'Heart to Heart',
+        duration: `${devotional.readTime || 2} min read`,
+        durationSeconds: Math.max(60, Math.ceil((devotional.fullBody || devotional.body || '').split(/\s+/).length / 2.5)),
+        type: 'Devotional',
+        description: devotional.verse || 'Read today\'s devotional aloud with your device voice.',
+        text: [devotional.title, devotional.verse, devotional.fullBody || devotional.body, devotional.confession, devotional.prayer].filter(Boolean).join('\n\n'),
+      } : null;
+      const libraryTracks = Array.isArray(items) ? items.map((item, index) => ({
         id: item.id || item._id || `audio-${index + 1}`,
-        title: item.title || item.name || defaultAudioTracks[index]?.title || 'Audio devotional',
+        title: item.title || item.name || 'Audio devotional',
         host: item.host || item.author || 'Heart to Heart',
-        duration: item.duration || defaultAudioTracks[index % defaultAudioTracks.length].duration,
+        duration: item.duration || 'Audio',
         durationSeconds: item.durationSeconds || 900,
         type: item.type || 'Audio',
-        description: item.description || item.subtitle || defaultAudioTracks[index % defaultAudioTracks.length].description,
-      })) : defaultAudioTracks;
-      setTracks(nextTracks);
+        description: item.description || item.subtitle || '',
+        text: item.text || item.body || item.content || '',
+        audioUrl: item.audioUrl || item.playbackUrl,
+      })).filter((track) => track.text) : [];
+      setTracks(devotionalTrack ? [devotionalTrack, ...libraryTracks] : libraryTracks);
+      setLoading(false);
     }).catch(() => {
-      if (active) setTracks(defaultAudioTracks);
+      if (active) {
+        setTracks([]);
+        setError("Audio content could not be loaded. Please try again.");
+        setLoading(false);
+      }
     });
     return () => { active = false; };
-  }, []);
+  }, [route.params?.item]);
 
   return (
     <Screen>
       <Header back title="Audio" subtitle="Devotionals, sermons, podcasts, and worship playlists." />
+      {loading ? <ActivityIndicator style={{ marginTop: 32 }} /> : null}
+      {!loading && error ? <EmptyState title="Audio unavailable" body={error} /> : null}
+      {!loading && !error && !tracks.length ? <EmptyState title="No audio available" body="Audio devotionals will appear here when they are available." /> : null}
       {tracks.map((track) => (
-        <Card key={track.id} style={styles.card} onPress={() => playTrack(track, tracks)}>
+        <Card key={track.id} style={styles.card} onPress={() => navigation.navigate("AudioPlayer", { track })}>
           <Card.Content style={styles.row}>
             <View style={styles.iconTile}><MaterialCommunityIcons name={"play-circle"} size={26} color="#E94E77" /></View>
             <View style={styles.flex}>
@@ -886,7 +902,7 @@ function AudioScreen({ navigation }) {
 }
 
 function ProfileScreen({ navigation }) {
-  const { session, subscription, isPremium, logout, bibleState, audioState, devotionalState, profileState } = useAppState();
+  const { session, logout, bibleState, audioState, devotionalState, profileState } = useAppState();
   const stats = [
     ["Streak", `${Math.max(1, bibleState.history.length + devotionalState.readIds.length)}`],
     ["Bookmarks", `${bibleState.bookmarks.length + devotionalState.bookmarks.length}`],
@@ -901,9 +917,7 @@ function ProfileScreen({ navigation }) {
           <View style={styles.avatar}><Text variant="titleLarge" style={styles.bold}>{firstName(session, profileState)?.[0]?.toUpperCase() || "G"}</Text></View>
           <View style={styles.flex}>
             <Text variant="titleMedium" style={styles.bold}>{firstName(session, profileState) || "Guest Reader"}</Text>
-            <Text variant="bodySmall" style={styles.muted}>{isPremium ? `Premium ${subscription.plan || "monthly"}` : "Free Bible plan"}</Text>
           </View>
-          {!isPremium && <Button mode="contained" onPress={() => navigation.navigate("Paywall")} compact>Upgrade</Button>}
         </Card.Content>
       </Card>
       <View style={styles.statsRow}>
@@ -917,7 +931,6 @@ function ProfileScreen({ navigation }) {
       {[
         ["Edit Profile", "account-edit-outline"],
         ["Change Password", "lock-reset"],
-        ["Subscription", "crown-outline"],
         ["Favorites", "bookmark-multiple-outline"],
         ["Downloads", "download-outline"],
         ["Reading Stats", "chart-line"],
@@ -925,6 +938,10 @@ function ProfileScreen({ navigation }) {
         ["Saved Notes", "note-text-outline"],
         ["Notifications", "bell-outline"],
         ["Settings", "cog-outline"],
+        ["Audio Library", "headphones"],
+        ["Monthly Devotionals", "calendar-month-outline"],
+        ["FAQ", "help-circle-outline"],
+        ["Connect With Us", "account-group-outline"],
         ["Support / Donate", "hand-coin"],
         ["Manage Gifts", "calendar-repeat"],
       ].map(([title, icon]) => (
@@ -935,6 +952,10 @@ function ProfileScreen({ navigation }) {
             if (title === "Subscription") navigation.navigate("Paywall");
             else if (title.includes("Support")) navigation.navigate("Donate");
             else if (title.includes("Manage Gifts")) navigation.navigate("ManageGifts");
+            else if (title === "Audio Library") navigation.navigate("Audio");
+            else if (title === "Monthly Devotionals") navigation.navigate("MonthDevotional", { month: "MAY" });
+            else if (title === "FAQ") navigation.navigate("FAQ");
+            else if (title === "Connect With Us") navigation.navigate("Connect");
             else navigation.navigate(title);
           }}
           left={() => <MaterialCommunityIcons name={icon} size={24} color="#F15A24" />}
@@ -947,9 +968,10 @@ function ProfileScreen({ navigation }) {
 }
 
 function DevotionalDetailScreen({ route, navigation }) {
-  const { recordDevotionalRead, toggleDevotionalBookmark, devotionalState } = useAppState();
+  const { recordDevotionalRead, toggleDevotionalBookmark, toggleDevotionalDownload, devotionalState } = useAppState();
   const item = route.params?.item;
   const bookmarked = item?.id ? devotionalState.bookmarks.some((saved) => saved.id === item.id) : false;
+  const downloaded = item?.id ? devotionalState.downloads.some((saved) => saved.id === item.id) : false;
 
   useEffect(() => {
     if (item?.id) recordDevotionalRead(item.id);
@@ -973,6 +995,9 @@ function DevotionalDetailScreen({ route, navigation }) {
             <Pressable onPress={share} style={styles.iconButton}>
               <MaterialCommunityIcons name="share-variant" size={22} color="#F15A24" />
             </Pressable>
+            <Pressable onPress={() => toggleDevotionalDownload(item)} style={styles.iconButton} accessibilityLabel={downloaded ? "Remove devotional download" : "Download devotional"}>
+              <MaterialCommunityIcons name={downloaded ? "download" : "download-outline"} size={22} color="#F15A24" />
+            </Pressable>
           </View>
         }
       />
@@ -986,7 +1011,7 @@ function DevotionalDetailScreen({ route, navigation }) {
       </Card>
       {item.confession && <Card style={styles.card}><Card.Content><Text variant="titleMedium" style={styles.bold}>Confession</Text><Text style={styles.muted}>{item.confession}</Text></Card.Content></Card>}
       {item.prayer && <Card style={styles.card}><Card.Content><Text variant="titleMedium" style={styles.bold}>Prayer</Text><Text style={styles.muted}>{item.prayer}</Text></Card.Content></Card>}
-      <Button mode="contained" icon="headphones" onPress={() => navigation.navigate("Audio")}>Listen to devotional audio</Button>
+      <Button mode="contained" icon="headphones" onPress={() => navigation.navigate("Audio", { item })}>Listen to devotional audio</Button>
     </Screen>
   );
 }
@@ -1230,7 +1255,7 @@ function ManageGiftsScreen({ navigation }) {
 }
 
 function ReadingScreen({ route, navigation }) {
-  const { bibleState, addReadingHistory, toggleVerseBookmark, toggleVerseHighlight, updateBiblePreferences } = useAppState();
+  const { bibleState, addReadingHistory, toggleVerseBookmark, toggleVerseHighlight, toggleBibleDownload, updateBiblePreferences } = useAppState();
   const { currentTheme } = useContext(PaperThemeContext);
   const { bookItem, bookTitle, versionId, versionCode } = route.params || {};
   const activeVersionCode = versionCode || bibleState.translation || "KJV";
@@ -1374,12 +1399,16 @@ function ReadingScreen({ route, navigation }) {
             const verse = { key: `${bookTitle}-${chapterIndex + 1}-${index + 1}`, book: bookTitle, chapter: chapterIndex + 1, verse: index + 1, text: cleanedVerseText, bookItem, bookTitle, chapterIndex, versionId };
             const highlighted = bibleState.highlights.some((saved) => saved.key === verse.key);
             const bookmarked = bibleState.bookmarks.some((saved) => saved.key === verse.key);
+            const downloaded = bibleState.downloads.some((saved) => saved.key === verse.key);
             return (
               <Pressable onLongPress={() => toggleVerseHighlight(verse)} onPress={() => setSelectedVerse(verse)} style={[styles.verseRow, highlighted && styles.highlightedVerse]}>
                 <Text style={[styles.verseNum, { color: currentTheme.colors.primary }]}>{index + 1}</Text>
                 <Text style={[styles.verseText, { color: readerText, fontSize }]}>{cleanedVerseText}</Text>
                 <Pressable onPress={() => toggleVerseBookmark(verse)} style={styles.iconButton}>
                   <MaterialCommunityIcons name={bookmarked ? "bookmark" : "bookmark-outline"} size={20} color={currentTheme.colors.primary} />
+                </Pressable>
+                <Pressable onPress={() => toggleBibleDownload(verse)} style={styles.iconButton} accessibilityLabel={downloaded ? "Remove passage download" : "Download passage"}>
+                  <MaterialCommunityIcons name={downloaded ? "download" : "download-outline"} size={20} color={currentTheme.colors.primary} />
                 </Pressable>
               </Pressable>
             );
@@ -1450,12 +1479,54 @@ function PaywallScreen({ navigation }) {
 }
 
 function AudioPlayerScreen({ route }) {
-  const { audioState, playTrack, togglePlayback, seekAudio, isPremium, toggleDownload, setAudioSpeed } = useAppState();
-  const track = route.params?.track || audioState.currentTrack || defaultAudioTracks[0];
+  const { audioState, playTrack, togglePlayback, stopPlayback, seekAudio, toggleDownload, setAudioSpeed } = useAppState();
+  const track = route.params?.track || audioState.currentTrack;
+  const [message, setMessage] = useState("");
+  const downloaded = track ? audioState.downloaded.some((item) => item.id === track.id) : false;
 
   useEffect(() => {
-    if (isPremium && track && audioState.currentTrack?.id !== track.id) playTrack(track, defaultAudioTracks);
+    if (track && audioState.currentTrack?.id !== track.id) {
+      playTrack(track, []);
+    }
   }, [track?.id]);
+
+  const handlePlayback = () => {
+    if (!track.text) {
+      togglePlayback();
+      return;
+    }
+
+    if (audioState.isPlaying) {
+      Speech.pause();
+      togglePlayback();
+      return;
+    }
+
+    Speech.isSpeakingAsync().then((speaking) => {
+      if (speaking) {
+        Speech.resume();
+        togglePlayback();
+        return;
+      }
+
+      Speech.speak(track.text, {
+        language: 'en-US',
+        pitch: 1,
+        rate: audioState.speed,
+        onDone: stopPlayback,
+        onStopped: stopPlayback,
+        onError: () => {
+          stopPlayback();
+          setMessage("Text-to-speech could not start on this device.");
+        },
+      });
+      togglePlayback();
+    }).catch(() => setMessage("Text-to-speech could not start on this device."));
+  };
+
+  if (!track) {
+    return <Screen><Header back title="Now Playing" /><EmptyState title="Nothing selected" body="Choose a devotional from the Audio screen first." /></Screen>;
+  }
 
   const percent = audioState.duration ? audioState.position / audioState.duration : 0;
 
@@ -1468,15 +1539,36 @@ function AudioPlayerScreen({ route }) {
       <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(4, percent * 100)}%` }]} /></View>
       <View style={styles.playerControls}>
         <Pressable onPress={() => seekAudio(audioState.position - 15)} style={styles.roundButton}><MaterialCommunityIcons name="rewind-15" size={26} /></Pressable>
-        <Pressable onPress={togglePlayback} style={styles.playButton}><MaterialCommunityIcons name={audioState.isPlaying ? "pause" : "play"} size={34} color="#fff" /></Pressable>
+        <Pressable onPress={handlePlayback} style={styles.playButton}><MaterialCommunityIcons name={audioState.isPlaying ? "pause" : "play"} size={34} color="#fff" /></Pressable>
         <Pressable onPress={() => seekAudio(audioState.position + 30)} style={styles.roundButton}><MaterialCommunityIcons name="fast-forward-30" size={26} /></Pressable>
       </View>
       <View style={styles.segment}>
-        {[0.75, 1, 1.25, 1.5].map((speed) => (
-          <Button key={speed} mode={audioState.speed === speed ? "contained" : "outlined"} onPress={() => setAudioSpeed(speed)} style={styles.flex}>{speed}x</Button>
+        {[0.75, 1, 1.25, 1.5, 2].map((speed) => (
+          <Button
+            key={speed}
+            mode={audioState.speed === speed ? "contained" : "outlined"}
+            onPress={() => {
+              setAudioSpeed(speed);
+              if (track.text && audioState.isPlaying) {
+                Speech.stop();
+                Speech.speak(track.text, {
+                  language: "en-US",
+                  pitch: 1,
+                  rate: speed,
+                  onDone: stopPlayback,
+                  onStopped: stopPlayback,
+                  onError: stopPlayback,
+                });
+              }
+            }}
+            style={styles.flex}
+          >{speed}x</Button>
         ))}
       </View>
-      <Button mode="outlined" icon="download" onPress={() => toggleDownload(track)}>Toggle offline download</Button>
+      <Button mode="outlined" icon={downloaded ? "download" : "download-outline"} onPress={() => toggleDownload(track)}>
+        {downloaded ? "Remove audio download" : "Download audio"}
+      </Button>
+      <Snackbar visible={!!message} onDismiss={() => setMessage("")}>{message}</Snackbar>
     </Screen>
   );
 }
@@ -1490,7 +1582,11 @@ function FeaturePlaceholderScreen({ route, navigation }) {
   const contentMap = {
     Bookmarks: bibleState.bookmarks.concat(devotionalState.bookmarks),
     Favorites: bibleState.bookmarks.concat(devotionalState.bookmarks),
-    Downloads: audioState.downloaded.length ? audioState.downloaded : [{ id: "empty-downloads", title: "No downloads yet", body: "Saved Bible passages and audio will appear here." }],
+    Downloads: [
+      ...bibleState.downloads.map((item) => ({ ...item, id: `bible-${item.key}`, title: `${item.book} ${item.chapter}:${item.verse}`, body: item.text, type: "Bible passage" })),
+      ...devotionalState.downloads.map((item) => ({ ...item, id: `devotional-${item.id}`, body: item.fullBody || item.body || item.verse, type: "Devotional" })),
+      ...audioState.downloaded.map((item) => ({ ...item, id: `audio-${item.id}`, body: `${item.type || "Audio"} ${item.duration || ""}`, type: "Audio" })),
+    ],
     Plans: planItems.length ? planItems : [{ id: "empty-plans", title: "No reading plans yet", body: "Your spiritual growth plans will appear here." }],
     Notifications: Object.entries(profileState.notificationPrefs || {}).map(([key, value]) => ({ id: key, title: key.replace(/([A-Z])/g, " $1"), body: value ? "Enabled" : "Disabled" })),
     Support: [{ id: "help", title: "Help & support", body: "FAQ, contact, privacy, and feedback channels are wired as app screens." }],
@@ -1533,14 +1629,14 @@ function FeaturePlaceholderScreen({ route, navigation }) {
           </Card.Content>
         </Card>
       )}
-      {items.map((item) => (
+      {items.length ? items.map((item) => (
         <Card key={item.key || item.id || item.title || name} style={styles.card}>
           <Card.Content>
             <Text variant="titleMedium" style={styles.bold}>{item.title || `${item.book} ${item.chapter}:${item.verse}`}</Text>
             <Text variant="bodyMedium" style={styles.muted}>{item.body || item.note || item.text || `${item.type || ""} ${item.duration || ""}`}</Text>
           </Card.Content>
         </Card>
-      ))}
+      )) : <EmptyState title="No downloads yet" body="Save Bible passages, devotionals, or audio to find them here." />}
     </Screen>
   );
 }
@@ -1713,7 +1809,7 @@ function SettingsScreen() {
 }
 
 function MiniPlayer() {
-  const { audioState, togglePlayback } = useAppState();
+  const { audioState, togglePlayback, clearTrack } = useAppState();
   const { currentTheme } = useContext(PaperThemeContext);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -1726,7 +1822,28 @@ function MiniPlayer() {
         <Text variant="labelLarge" numberOfLines={1}>{audioState.currentTrack.title}</Text>
         <Text variant="labelSmall" style={styles.muted}>{audioState.isPlaying ? "Playing" : "Paused"}</Text>
       </View>
-      <Pressable onPress={togglePlayback} style={styles.iconButton}><MaterialCommunityIcons name={audioState.isPlaying ? "pause" : "play"} size={22} color={currentTheme.colors.primary} /></Pressable>
+      <Pressable
+        onPress={() => {
+          if (audioState.currentTrack.text) {
+            if (audioState.isPlaying) Speech.pause();
+            else Speech.resume();
+          }
+          togglePlayback();
+        }}
+        style={styles.iconButton}
+      >
+        <MaterialCommunityIcons name={audioState.isPlaying ? "pause" : "play"} size={22} color={currentTheme.colors.primary} />
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          Speech.stop();
+          clearTrack();
+        }}
+        accessibilityLabel="Close audio player"
+        style={styles.iconButton}
+      >
+        <MaterialCommunityIcons name="close" size={22} color={currentTheme.colors.outline} />
+      </Pressable>
     </Pressable>
   );
 }
@@ -1758,7 +1875,7 @@ function MainTabs() {
         <Tab.Screen name="Bible" component={BibleScreen} options={{ tabBarIcon: (props) => <TabIcon name="book-open-page-variant" {...props} /> }} />
         <Tab.Screen name="Hymns" component={HymnsScreen} options={{ tabBarIcon: (props) => <TabIcon name="music-note-outline" {...props} /> }} />
         <Tab.Screen name="Search" component={SearchScreen} options={{ tabBarIcon: (props) => <TabIcon name="magnify" {...props} /> }} />
-        <Tab.Screen name="Premium" component={PremiumHubScreen} options={{ tabBarIcon: (props) => <TabIcon name="crown-outline" {...props} /> }} />
+        <Tab.Screen name="Devotionals" component={DevotionalScreen} options={{ tabBarIcon: (props) => <TabIcon name="book-multiple" {...props} /> }} />
         <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: (props) => <TabIcon name="account-circle-outline" {...props} /> }} />
       </Tab.Navigator>
       <MiniPlayer />
@@ -1775,10 +1892,12 @@ function RootNavigator() {
       <Stack.Screen name="FAQ" component={FAQScreen} />
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="Reading" component={ReadingScreen} />
+      <Stack.Screen name="MonthDevotional" component={MonthDevotionalScreen} />
       <Stack.Screen name="Paywall" component={PaywallScreen} options={{ presentation: "modal" }} />
       <Stack.Screen name="Audio" component={AudioScreen} />
       <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
       <Stack.Screen name="DevotionalDetail" component={DevotionalDetailScreen} />
+      <Stack.Screen name="HymnDetail" component={HymnDetailScreen} />
       <Stack.Screen name="Donate" component={DonateScreen} />
       <Stack.Screen name="ManageGifts" component={ManageGiftsScreen} />
       {["Bookmarks", "Favorites", "Downloads", "Plans", "Prayer", "Prayer Journal", "Saved Notes", "Reading Stats", "Edit Profile", "Change Password", "Notifications", "Support", "Offline", "Sermons", "Assistant", "Devotionals", "ContinueReading"].map((name) => (
