@@ -11,6 +11,10 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { PaperThemeContext } from "../components/PaperThemeContext";
 import { devotionalAPI, userAPI } from "../services/api";
+import {
+  getTodayDevotional as getTodayLocalDevotional,
+  getDevotionalsByMonth as getLocalDevotionalsByMonth,
+} from "../services/localDatabase";
 
 export default function DevotionalScreen({ navigation }) {
   const { currentTheme } = useContext(PaperThemeContext);
@@ -48,6 +52,12 @@ export default function DevotionalScreen({ navigation }) {
   const loadData = async () => {
     try {
       setLoading(true);
+      const localToday = getTodayLocalDevotional();
+      if (localToday) {
+        setTodayDevotional(localToday);
+        return;
+      }
+
       const today = await devotionalAPI.getTodayDevotional();
       setTodayDevotional(today);
     } catch (error) {
@@ -61,6 +71,12 @@ export default function DevotionalScreen({ navigation }) {
 
   const loadMonthlyDevotionals = async () => {
     try {
+      const localMonthly = getLocalDevotionalsByMonth(selectedMonth);
+      if (localMonthly.length) {
+        setDevotionalsForMonth(localMonthly);
+        return;
+      }
+
       const monthly = await devotionalAPI.getDevotionalsByMonth(selectedMonth);
       setDevotionalsForMonth(monthly);
     } catch (error) {
@@ -99,23 +115,18 @@ export default function DevotionalScreen({ navigation }) {
       style={[styles.container, { backgroundColor: currentTheme.colors.background }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
       <View style={styles.header}>
-        <Text variant="headlineSmall" style={{ color: currentTheme.colors.onBackground, fontWeight: "700" }}>
+        <Text variant="headlineSmall" style={{ color: currentTheme.colors.primary, fontWeight: "800" }}>
           Devotionals
         </Text>
       </View>
 
-      {/* Today's Devotional Card */}
       {todayDevotional && (
-        <Card style={[styles.card, { backgroundColor: currentTheme.colors.surface }]}>
+        <Card style={[styles.card, { backgroundColor: currentTheme.colors.surface, borderColor: currentTheme.colors.outline }]}>
           <Card.Content style={styles.cardContent}>
             <View style={styles.titleRow}>
               <View style={{ flex: 1 }}>
-                <Text
-                  variant="labelSmall"
-                  style={{ color: currentTheme.colors.primary, fontWeight: "600", marginBottom: 8 }}
-                >
+                <Text variant="labelSmall" style={{ color: currentTheme.colors.primary, fontWeight: "700", marginBottom: 8 }}>
                   TODAY'S DEVOTION
                 </Text>
                 <Text variant="labelSmall" style={{ color: currentTheme.colors.outline }}>
@@ -125,59 +136,34 @@ export default function DevotionalScreen({ navigation }) {
               <Button icon="share-variant" onPress={handleShare} compact />
             </View>
 
-            <Divider style={{ marginVertical: 12 }} />
+            <Divider style={{ marginVertical: 12, backgroundColor: currentTheme.colors.outline }} />
 
-            <Text
-              variant="titleMedium"
-              style={{
-                color: currentTheme.colors.onSurface,
-                fontWeight: "600",
-                marginBottom: 8,
-              }}
-            >
+            <Text variant="titleMedium" style={{ color: currentTheme.colors.onSurface, fontWeight: "700", marginBottom: 8 }}>
               {todayDevotional.title}
             </Text>
 
-            <Text
-              variant="bodyMedium"
-              style={{
-                color: currentTheme.colors.onSurface,
-                lineHeight: 22,
-                marginBottom: 12,
-                fontStyle: "italic",
-              }}
-            >
+            <Text variant="bodyMedium" style={{ color: currentTheme.colors.onSurface, lineHeight: 22, marginBottom: 12, fontStyle: "italic" }}>
               "{todayDevotional.verse}"
             </Text>
 
-            <Text
-              variant="bodySmall"
-              style={{
-                color: currentTheme.colors.onSurface,
-                lineHeight: 20,
-                marginBottom: 16,
-              }}
-            >
+            <Text variant="bodySmall" style={{ color: currentTheme.colors.onSurface, lineHeight: 20, marginBottom: 16 }}>
               {todayDevotional.body}
             </Text>
 
-            <Button
-              mode="contained"
-              onPress={() => handleReadDevotional(todayDevotional)}
-              style={{ backgroundColor: currentTheme.colors.primary }}
-            >
-              Read Full Devotion
-            </Button>
+            <View style={styles.primaryActions}>
+              <Button mode="contained" onPress={() => handleReadDevotional(todayDevotional)} style={{ backgroundColor: currentTheme.colors.primary }}>
+                Read full devotion
+              </Button>
+              <Button mode="outlined" onPress={() => navigation.navigate("Audio")} textColor={currentTheme.colors.primary}>
+                Listen
+              </Button>
+            </View>
           </Card.Content>
         </Card>
       )}
 
-      {/* Month Selection */}
       <View style={{ paddingHorizontal: 16, marginVertical: 12 }}>
-        <Text
-          variant="titleMedium"
-          style={{ color: currentTheme.colors.onBackground, fontWeight: "700", marginBottom: 12 }}
-        >
+        <Text variant="titleMedium" style={{ color: currentTheme.colors.onBackground, fontWeight: "700", marginBottom: 12 }}>
           Browse by Month
         </Text>
         <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
@@ -186,13 +172,8 @@ export default function DevotionalScreen({ navigation }) {
               key={month}
               mode={selectedMonth === month ? "contained" : "outlined"}
               onPress={() => setSelectedMonth(month)}
-              style={{
-                backgroundColor:
-                  selectedMonth === month ? currentTheme.colors.primary : "transparent",
-              }}
-              textColor={
-                selectedMonth === month ? "#fff" : currentTheme.colors.primary
-              }
+              style={{ backgroundColor: selectedMonth === month ? currentTheme.colors.primary : "transparent" }}
+              textColor={selectedMonth === month ? "#fff" : currentTheme.colors.primary}
               compact
             >
               {month}
@@ -292,7 +273,8 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
     marginVertical: 8,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   cardContent: {
     paddingVertical: 16,
@@ -302,6 +284,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+  },
+  primaryActions: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
   },
   dayCard: {
     borderRadius: 12,

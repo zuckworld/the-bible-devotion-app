@@ -43,7 +43,7 @@ heart-to-heart-demo/
 ├── assets/                             # Frontend assets
 │   ├── devotions.json                  # Legacy/unused JSON (see data quality notes)
 │   └── bible/
-│       └── kjv.json                    # King James Version Bible (66 books)
+│       └── db/bible.db                 # Bundled Bible and study database
 │
 ├── components/                         # React Native components
 │   ├── AppHeader.js
@@ -190,26 +190,11 @@ server.js → models/Devotional.js (loads all 12 JSON files into memory) → rou
 
 ---
 
-### **Bible Data** (`assets/bible/kjv.json`)
+### **Bible Data** (`assets/db/bible.db`)
 
-**Schema:** Flat object keyed by book abbreviations
-```json
-{
-  "GEN": {
-    "name": "Genesis",
-    "chapters": [
-      {
-        "chapter": 1,
-        "verses": [
-          { "verse": 1, "text": "In the beginning..." }
-        ]
-      }
-    ]
-  }
-}
-```
-
-**Record Count:** 66 books, ~31,000 verses (KJV full Bible)
+The mobile app reads Bible text, Strong's lexicon entries, and Easton's dictionary
+entries from the bundled read-only SQLite database. The previous standalone KJV
+JSON asset is no longer used.
 
 ---
 
@@ -500,9 +485,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000/a
 | File | Size |
 |------|------|
 | `backend/data/devotional/jan.json` | ~350 KB |
-| `assets/bible/kjv.json` | ~8 MB |
 | `backend/data/users.json` | ~2 KB |
-| **Total Data** | ~8.5 MB |
 
 ---
 

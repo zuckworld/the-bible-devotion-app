@@ -1,23 +1,28 @@
-import React, { useEffect, useState } from "react";
-import { View, ScrollView, Linking } from "react-native";
-import { ActivityIndicator, Button, Card, Paragraph, Portal, Text, Title, TextInput } from "react-native-paper";
-import axios from "axios";
+import React, { useContext, useEffect, useState } from "react";
+import { View, ScrollView, Linking, StyleSheet } from "react-native";
+import { ActivityIndicator, Button, Card, Chip, Portal, Text, TextInput } from "react-native-paper";
 import { dictionaryAPI } from "../services/api";
 import { useNavigation } from "@react-navigation/native";
-import kjv from "../assets/bible/kjv.json";
+import { PaperThemeContext } from "./PaperThemeContext";
+import EastonsDefinition from "./EastonsDefinition";
+import { findBibleReference, getDictionaryEntries, getDictionaryEntry, getStrongEntries, searchVersesByWord } from "../services/localDatabase";
 
-
-export default function WordLookup({ word, visible, onDismiss, verse, onSave }) {
+export default function WordLookup({ word, strongs, visible, onDismiss, verse, onSave }) {
+  const { currentTheme } = useContext(PaperThemeContext);
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState(null);
+  const [entry, setEntry] = useState(null);
   const [noteText, setNoteText] = useState("");
   const [crossrefs, setCrossrefs] = useState([]);
+  const [relatedVerses, setRelatedVerses] = useState([]);
+  const [externalLinks, setExternalLinks] = useState([]);
+  const [source, setSource] = useState("local");
+  const [strongEntry, setStrongEntry] = useState(null);
+  const [otherSenses, setOtherSenses] = useState([]);
+  const [otherDictionaryEntries, setOtherDictionaryEntries] = useState([]);
   const normalized = (word || "").replace(/[^a-zA-Z'-]/g, "").toLowerCase();
   const navigation = useNavigation();
 
   function parseRef(ref) {
-    // Improved parser: captures a book name (may include numeric prefix and multi-word names)
-    // Expected formats: "John 3:16", "1 John 3:16", "Song of Solomon 2:1" or just "John 3"
     if (!ref) return null;
     const m = ref.match(/^\s*(.+?)\s+(\d+)(?::(\d+))?\s*$/);
     if (!m) return null;
@@ -27,119 +32,405 @@ export default function WordLookup({ word, visible, onDismiss, verse, onSave }) 
     return { book, chapter, verse: verseNum };
   }
 
-  function findLocalBook(bookName) {
-    if (!bookName) return null;
-    const normalize = (s) => (s || '').toLowerCase().replace(/["'.:,]/g, '').replace(/\s+/g, ' ').trim();
-    const wanted = normalize(bookName.replace(/^1st|1|2nd|2|3rd|3\s+/i, (x) => x));
-
-    // Try exact match, startsWith, abbrev, and fuzzy includes
-    let found = kjv.find((bk) => normalize(bk.name) === normalize(bookName));
-    if (found) return found;
-    found = kjv.find((bk) => normalize(bk.name).startsWith(normalize(bookName)) || normalize(bookName).startsWith(normalize(bk.name)));
-    if (found) return found;
-    found = kjv.find((bk) => bk.abbrev && normalize(bk.abbrev) === normalize(bookName));
-    if (found) return found;
-    // fallback: include match
-    found = kjv.find((bk) => normalize(bk.name).includes(normalize(bookName)) || normalize(bookName).includes(normalize(bk.name)));
-    return found || null;
-  }
-
   useEffect(() => {
     let active = true;
-    async function fetchDef() {
-      if (!normalized) return;
+
+    async function loadWordStudy() {
+      if (!normalized) {
+        setEntry(null);
+        setCrossrefs([]);
+        setRelatedVerses([]);
+        setExternalLinks([]);
+        setSource("local");
+        return;
+      }
+
       setLoading(true);
-      setData(null);
+      setEntry(null);
+      setStrongEntry(null);
+      setOtherSenses([]);
+      setOtherDictionaryEntries([]);
+      setCrossrefs([]);
+      setRelatedVerses([]);
+      setExternalLinks([]);
+
       try {
-        const res = await axios.get(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(normalized)}`);
-        if (!active) return;
-        setData(res.data && res.data[0]);
-      } catch (err) {
-        if (!active) return;
-        setData(null);
+        if (strongs) {
+          const senses = getStrongEntries(strongs);
+          if (!active) return;
+          setStrongEntry(senses[0] || null);
+          setOtherSenses(senses.slice(1));
+          setSource("strongs");
+          setLoading(false);
+          return;
+        }
+
+        const eastonsEntries = getDictionaryEntries(normalized);
+        if (eastonsEntries.length > 0) {
+          const localEntry = eastonsEntries[0];
+          setEntry({
+            word: localEntry.word,
+            partOfSpeech: "Easton's Dictionary",
+            definition: localEntry.definition,
+            summary: "",
+            source: "local",
+          });
+          setOtherDictionaryEntries(eastonsEntries.slice(1));
+          setRelatedVerses(searchVersesByWord(normalized, "KJV", 5).map((item) => ({
+            ref: `${item.book_name} ${item.chapter_number}:${item.verse_number}`,
+            text: item.text,
+          })));
+          setSource("local");
+          setLoading(false);
+          return;
+        }
+
+        const study = await dictionaryAPI.getWordStudy(normalized);
+        if (!active || !study) return;
+
+        setEntry({
+          word: study.word || normalized,
+          partOfSpeech: study.partOfSpeech || "noun",
+          definition: study.definition || "Definition not available.",
+          summary: study.summary || "Study notes unavailable.",
+          source: study.source || "local",
+        });
+
+        setCrossrefs(study.crossrefs || []);
+        setRelatedVerses(study.relatedVerses || []);
+        setExternalLinks(study.externalLinks || []);
+        setSource(study.source || "local");
+      } catch (error) {
+        const localEntry = getDictionaryEntry(normalized);
+        if (localEntry && active) {
+          setEntry({
+            word: localEntry.word,
+            partOfSpeech: localEntry.partOfSpeech,
+            summary: localEntry.summary,
+            definition: localEntry.definition,
+            source: "local",
+          });
+          setSource("local");
+        } else if (active) {
+          setEntry(null);
+          setSource("none");
+        }
       } finally {
         if (active) setLoading(false);
       }
     }
 
-    async function fetchCrossrefs() {
-      try {
-        const refs = await dictionaryAPI.getCrossReferences(normalized);
-        if (active) setCrossrefs(refs || []);
-      } catch (e) {
-        if (active) setCrossrefs([]);
-      }
-    }
+    loadWordStudy();
 
-    fetchDef();
-    fetchCrossrefs();
     return () => {
       active = false;
     };
-  }, [normalized]);
+  }, [normalized, strongs]);
 
   if (!visible) return null;
 
   return (
     <Portal>
-      <Card style={{ margin: 16, borderRadius: 12 }}>
+      <View style={styles.backdrop} />
+      <Card style={[styles.panel, { backgroundColor: currentTheme.colors.surface, borderColor: currentTheme.colors.outline }]}>
         <Card.Content>
-          <Title>{word || "Lookup"}</Title>
-          {loading ? (
-            <View style={{ paddingVertical: 12 }}>
-              <ActivityIndicator />
+          <View style={styles.headRow}>
+            <View>
+              <Text variant="labelLarge" style={{ color: currentTheme.colors.primary, fontWeight: "700" }}>
+                Word Study
+              </Text>
+              <Text variant="headlineSmall" style={{ color: currentTheme.colors.primary, fontWeight: "800", marginTop: 2 }}>
+                {word || "Lookup"}
+              </Text>
             </View>
-          ) : data ? (
-            <ScrollView style={{ maxHeight: 300 }}>
-              <Paragraph style={{ marginBottom: 8 }}>{data.word}</Paragraph>
-              {data.phonetics?.[0]?.text ? <Paragraph style={{ marginBottom: 6 }}>{data.phonetics[0].text}</Paragraph> : null}
-              {data.meanings?.map((m, idx) => (
-                <View key={idx} style={{ marginBottom: 8 }}>
-                  <Text style={{ fontWeight: "700" }}>{m.partOfSpeech}</Text>
-                  {m.definitions?.map((d, i) => (
-                    <Paragraph key={i} style={{ marginTop: 4 }}>{d.definition}{d.example ? ` — ${d.example}` : ""}</Paragraph>
+            <Chip mode="outlined" style={[styles.chip, { borderColor: currentTheme.colors.primary }]} textStyle={{ color: currentTheme.colors.primary }}>
+              {source === "strongs" ? "Strong's" : source === "local" ? "Easton's" : source === "remote" ? "Reference" : "Study"}
+            </Chip>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator color={currentTheme.colors.primary} />
+            </View>
+          ) : strongEntry ? (
+            <ScrollView style={styles.contentScroll} contentContainerStyle={styles.contentScrollInner} showsVerticalScrollIndicator={false}>
+              <Text style={{ color: currentTheme.colors.onSurfaceVariant || currentTheme.colors.outline, fontWeight: "700" }}>
+                {strongEntry.strongs_id}
+              </Text>
+              <Text style={{ color: currentTheme.colors.onSurface, fontSize: 18, fontWeight: "700", marginTop: 10 }}>
+                {strongEntry.original || ""}
+              </Text>
+              <Text style={{ color: currentTheme.colors.onSurfaceVariant || currentTheme.colors.outline, marginTop: 4 }}>
+                {strongEntry.translit || ""}
+              </Text>
+              {strongEntry.gloss ? <Text style={{ color: currentTheme.colors.primary, marginTop: 10 }}>{strongEntry.gloss}</Text> : null}
+              <Text style={{ color: currentTheme.colors.onSurface, fontSize: 15, lineHeight: 22, marginTop: 10 }}>
+                {strongEntry.meaning || "Meaning unavailable."}
+              </Text>
+              {otherSenses.length > 0 ? (
+                <View style={{ marginTop: 16 }}>
+                  <Text style={{ color: currentTheme.colors.primary, fontWeight: "700", marginBottom: 8 }}>Other senses</Text>
+                  {otherSenses.map((sense) => (
+                    <View key={sense.id} style={{ marginBottom: 12 }}>
+                      <Text style={{ color: currentTheme.colors.onSurface, fontWeight: "700" }}>{sense.gloss || sense.original || sense.strongs_id}</Text>
+                      <Text style={{ color: currentTheme.colors.onSurface, lineHeight: 22, marginTop: 4 }}>{sense.meaning || ""}</Text>
+                    </View>
                   ))}
                 </View>
+              ) : null}
+            </ScrollView>
+          ) : entry ? (
+            <ScrollView style={styles.contentScroll} contentContainerStyle={styles.contentScrollInner} showsVerticalScrollIndicator={false}>
+              <View style={styles.metaRow}>
+                <Text style={{ color: currentTheme.colors.onSurfaceVariant || currentTheme.colors.outline, fontWeight: "700" }}>
+                  {entry.partOfSpeech || "noun"}
+                </Text>
+              </View>
+
+              {entry.source === "local" ? (
+                <EastonsDefinition
+                  definition={entry.definition}
+                  style={{ color: currentTheme.colors.onSurface, fontSize: 15, lineHeight: 22, marginTop: 12 }}
+                  linkStyle={{ color: currentTheme.colors.primary, textDecorationLine: "underline" }}
+                />
+              ) : (
+                <Text style={{ color: currentTheme.colors.onSurface, fontSize: 15, lineHeight: 22, marginTop: 12 }}>
+                  {entry.definition || "Definition unavailable."}
+                </Text>
+              )}
+
+              {otherDictionaryEntries.map((otherEntry) => (
+                <View key={otherEntry.id} style={{ marginTop: 14 }}>
+                  <Text style={{ color: currentTheme.colors.primary, fontWeight: "700" }}>{otherEntry.word}</Text>
+                  <EastonsDefinition
+                    definition={otherEntry.definition}
+                    style={{ color: currentTheme.colors.onSurface, fontSize: 15, lineHeight: 22, marginTop: 6 }}
+                    linkStyle={{ color: currentTheme.colors.primary, textDecorationLine: "underline" }}
+                  />
+                </View>
               ))}
+
+              {entry.summary ? (
+                <Text style={{ color: currentTheme.colors.onSurfaceVariant || currentTheme.colors.outline, marginTop: 10, lineHeight: 22 }}>
+                  {entry.summary}
+                </Text>
+              ) : null}
             </ScrollView>
           ) : (
-            <Paragraph style={{ marginVertical: 8 }}>No definition found locally. Try web lookup.</Paragraph>
+            <Text style={{ color: currentTheme.colors.onSurface, marginTop: 14, lineHeight: 22 }}>
+              No definition was found locally or online. You can still search the web or explore related references below.
+            </Text>
           )}
         </Card.Content>
+
         <Card.Content>
-          <Text variant="titleSmall" style={{ marginTop: 8 }}>Notes</Text>
-          <TextInput value={noteText} onChangeText={setNoteText} placeholder="Add a note for this verse" multiline mode="outlined" style={{ marginTop: 8 }} />
+          <Text variant="titleSmall" style={{ color: currentTheme.colors.primary, fontWeight: "700", marginBottom: 8 }}>
+            Related verses
+          </Text>
+
+          {relatedVerses.length === 0 ? (
+            <Text style={{ color: currentTheme.colors.onSurfaceVariant || currentTheme.colors.outline }}>
+              No verse hits were found for this term in the local Bible data.
+            </Text>
+          ) : (
+            relatedVerses.map((item, index) => (
+              <Text
+                key={`${item.ref || "verse"}-${index}`}
+                style={{ color: currentTheme.colors.onSurface, marginTop: 6, lineHeight: 22 }}
+                onPress={() => {
+                  const parsed = parseRef(item.ref);
+                  if (!parsed) {
+                    Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(item.ref)}`);
+                    return;
+                  }
+
+                  const ref = findBibleReference(item.ref, "KJV");
+                  if (ref) {
+                    navigation.navigate("Reading", {
+                      bookTitle: ref.bookTitle,
+                      versionCode: ref.versionCode,
+                      chapterIndex: ref.chapterIndex,
+                    });
+                    return;
+                  }
+
+                  Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(item.ref)}`);
+                }}
+              >
+                • {item.ref} — {item.text}
+              </Text>
+            ))
+          )}
         </Card.Content>
-        <Card.Actions>
-          <Button onPress={() => onDismiss && onDismiss()}>Close</Button>
-          <Button onPress={() => Linking.openURL(`https://www.google.com/search?q=define+${encodeURIComponent(normalized)}`)}>Search web</Button>
+
+        <Card.Content>
+          <Text variant="titleSmall" style={{ color: currentTheme.colors.primary, fontWeight: "700", marginBottom: 8 }}>
+            Notes
+          </Text>
+          <TextInput
+            value={noteText}
+            onChangeText={setNoteText}
+            placeholder="Add a note for this verse"
+            multiline
+            mode="outlined"
+            style={styles.noteInput}
+            placeholderTextColor={currentTheme.colors.outline}
+            textColor={currentTheme.colors.onSurface}
+          />
+        </Card.Content>
+
+        <Card.Content>
+          <Text variant="titleSmall" style={{ color: currentTheme.colors.primary, fontWeight: "700", marginBottom: 8 }}>
+            Cross references
+          </Text>
+
+          {crossrefs.length === 0 ? (
+            <Text style={{ color: currentTheme.colors.onSurfaceVariant || currentTheme.colors.outline }}>
+              No related references were found for this term.
+            </Text>
+          ) : (
+            crossrefs.map((item, index) => (
+              <Text
+                key={`${item.ref || "ref"}-${index}`}
+                style={{ color: currentTheme.colors.onSurface, marginTop: 6, lineHeight: 22 }}
+                onPress={() => {
+                  const parsed = parseRef(item.ref);
+                  if (!parsed) {
+                    Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(item.ref)}`);
+                    return;
+                  }
+
+                  const ref = findBibleReference(item.ref, "KJV");
+                  if (ref) {
+                    navigation.navigate("Reading", {
+                      bookTitle: ref.bookTitle,
+                      versionCode: ref.versionCode,
+                      chapterIndex: ref.chapterIndex,
+                    });
+                    return;
+                  }
+
+                  Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(item.ref)}`);
+                }}
+              >
+                • {item.ref} — {item.reason}
+              </Text>
+            ))
+          )}
+        </Card.Content>
+
+        {externalLinks.length > 0 && (
+          <Card.Content>
+            <Text variant="titleSmall" style={{ color: currentTheme.colors.primary, fontWeight: "700", marginBottom: 8 }}>
+              Study tools
+            </Text>
+            <View style={styles.linkRow}>
+              {externalLinks.map((link) => (
+                <Button
+                  key={link.label}
+                  mode="outlined"
+                  compact
+                  onPress={() => Linking.openURL(link.url)}
+                  textColor={currentTheme.colors.primary}
+                  style={styles.linkButton}
+                >
+                  {link.label}
+                </Button>
+              ))}
+            </View>
+          </Card.Content>
+        )}
+
+        <Card.Actions style={styles.actions}>
+          <Button mode="text" onPress={() => onDismiss && onDismiss()} textColor={currentTheme.colors.primary}>
+            Close
+          </Button>
+          <Button mode="text" onPress={() => Linking.openURL(`https://www.google.com/search?q=define+${encodeURIComponent(normalized)}`)} textColor={currentTheme.colors.primary}>
+            Search web
+          </Button>
           <Button
+            mode="contained"
             onPress={() => {
               if (onSave && verse) onSave(verse, noteText || `Note on ${normalized}`);
               if (onDismiss) onDismiss();
             }}
+            buttonColor={currentTheme.colors.primary}
+            textColor="#FFFFFF"
           >
-            Save Note
+            Save note
           </Button>
         </Card.Actions>
-          {crossrefs?.length ? (
-          <Card.Content>
-            <Text variant="titleSmall" style={{ marginTop: 6 }}>Cross references</Text>
-            {crossrefs.map((c, i) => (
-              <Paragraph key={i} style={{ marginTop: 6 }} onPress={() => {
-                const parsed = parseRef(c.ref);
-                const local = findLocalBook(parsed?.book);
-                if (local) {
-                  navigation.navigate('Reading', { bookItem: local, bookTitle: local.name, chapterIndex: Math.max(0, (parsed.chapter || 1) - 1) });
-                } else {
-                  // fallback: open web search for the ref
-                  Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(c.ref)}`);
-                }
-              }}>{c.ref} — {c.reason}</Paragraph>
-            ))}
-          </Card.Content>
-        ) : null}
       </Card>
     </Portal>
   );
 }
+
+const styles = StyleSheet.create({
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
+  },
+  panel: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    top: 90,
+    bottom: 120,
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+  },
+  headRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  chip: {
+    backgroundColor: "transparent",
+    marginTop: 8,
+  },
+  loadingWrap: {
+    paddingVertical: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contentScroll: {
+    maxHeight: 220,
+  },
+  contentScrollInner: {
+    paddingBottom: 8,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  noteInput: {
+    backgroundColor: "transparent",
+    marginBottom: 8,
+  },
+  linkRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 4,
+  },
+  linkButton: {
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  actions: {
+    justifyContent: "flex-end",
+    paddingTop: 0,
+  },
+});

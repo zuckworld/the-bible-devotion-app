@@ -30,7 +30,6 @@ const defaultBibleState = {
   fontScale: 1,
   theme: "paper",
   translation: "KJV",
-  selectedBibleVersionId: null,
 };
 
 const defaultAudioState = {

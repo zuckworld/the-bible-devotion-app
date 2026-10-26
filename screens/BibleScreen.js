@@ -1,62 +1,42 @@
-import React, { useMemo, useState, useContext } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  ImageBackground,
-} from 'react-native';
+import React, { useMemo, useState, useContext, useEffect } from 'react';
+import { View, StyleSheet, FlatList } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Card, Text, Snackbar, ActivityIndicator, Searchbar } from 'react-native-paper';
-import { PaperThemeContext } from "../components/PaperThemeContext";
+import { Card, Text, Searchbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import kjv from '../assets/bible/kjv.json';
+import { PaperThemeContext } from "../components/PaperThemeContext";
+import { getBibleBooks } from "../services/localDatabase";
 
 export default function BibleScreen() {
   const navigation = useNavigation();
   const { currentTheme } = useContext(PaperThemeContext);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [books, setBooks] = useState([]);
 
-  const books = useMemo(() => {
-    if (Array.isArray(kjv)) return kjv;
-    if (typeof kjv === 'object') {
-      return Object.keys(kjv).map((k) => ({
-        name: k,
-        chapters: kjv[k].chapters || kjv[k],
-        abbrev: kjv[k].abbrev || k.slice(0,3).toLowerCase(),
-      }));
-    }
-    return [];
+  useEffect(() => {
+    setBooks(getBibleBooks());
   }, []);
 
   const filteredBooks = useMemo(() => {
     if (!searchQuery) return books;
-    return books.filter(book =>
-      book.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return books.filter((book) => book.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [books, searchQuery]);
 
   const renderItem = ({ item }) => {
-    const title = item.name || (item.title ? item.title : (item.abbrev || 'Unknown').toUpperCase());
-    const chaptersCount = (item.chapters && item.chapters.length) || 0;
+    const title = item.name || 'Unknown';
+    const chaptersCount = Number(item.chapterCount || 0);
 
     return (
       <Card
-        style={[styles.bookCard, { backgroundColor: currentTheme.colors.surface }]}
-        onPress={() =>
-          navigation.navigate('Reading', {
-            bookTitle: title,
-            bookItem: item,
-          })
-        }
+        style={[styles.bookCard, { backgroundColor: currentTheme.colors.surface, borderColor: currentTheme.colors.outline }]}
+        onPress={() => navigation.navigate('Reading', { bookTitle: title, bookItem: item, versionCode: "KJV" })}
       >
         <Card.Content style={styles.bookCardContent}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={styles.bookRow}>
             <View style={{ flex: 1 }}>
-              <Text variant="bodyLarge" style={{ color: currentTheme.colors.onSurface, fontWeight: '600', marginBottom: 4 }}>
+              <Text variant="titleMedium" style={{ color: currentTheme.colors.primary, fontWeight: '700', marginBottom: 4 }}>
                 {title}
               </Text>
-              <Text variant="bodySmall" style={{ color: currentTheme.colors.outline }}>
+              <Text variant="bodySmall" style={{ color: currentTheme.colors.onSurfaceVariant || currentTheme.colors.outline }}>
                 {chaptersCount} chapters
               </Text>
             </View>
@@ -70,24 +50,24 @@ export default function BibleScreen() {
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.colors.background }]}>
       <View style={styles.header}>
-        <Text variant="headlineSmall" style={{ color: currentTheme.colors.onBackground, fontWeight: '700', marginBottom: 12 }}>
-          📖 Holy Bible (KJV)
+        <Text variant="headlineSmall" style={{ color: currentTheme.colors.primary, fontWeight: '800', marginBottom: 10 }}>
+          Bible · KJV
         </Text>
         <Searchbar
           placeholder="Search books..."
           onChangeText={setSearchQuery}
           value={searchQuery}
-          style={{ backgroundColor: currentTheme.colors.surface }}
+          style={[styles.searchbar, { backgroundColor: currentTheme.colors.surface }]}
           inputStyle={{ color: currentTheme.colors.onSurface }}
+          iconColor={currentTheme.colors.primary}
         />
       </View>
 
       <FlatList
         data={filteredBooks}
-        keyExtractor={(item, idx) => (item.abbrev ? item.abbrev : `${item.name}-${idx}`)}
+        keyExtractor={(item, idx) => `${item.name}-KJV-${idx}`}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120, paddingTop: 12 }}
-        scrollEnabled={true}
+        contentContainerStyle={styles.listContent}
       />
     </View>
   );
@@ -95,13 +75,14 @@ export default function BibleScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 },
+  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10 },
+  searchbar: { borderRadius: 14, borderWidth: 1 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 120, paddingTop: 12 },
   bookCard: {
-    borderRadius: 12,
-    marginBottom: 8,
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
   },
-  bookCardContent: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
+  bookCardContent: { paddingVertical: 12, paddingHorizontal: 16 },
+  bookRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

@@ -85,115 +85,70 @@ export default function HomeScreen({ navigation }) {
       style={[styles.container, { backgroundColor: currentTheme.colors.background }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
       <View style={styles.header}>
-        <Text variant="headlineSmall" style={{ color: currentTheme.colors.primary, fontWeight: "700" }}>
-          Today
-        </Text>
-        <MaterialCommunityIcons name="bell" size={24} color={currentTheme.colors.primary} />
+        <View>
+          <Text variant="labelLarge" style={{ color: currentTheme.colors.primary, fontWeight: "700", letterSpacing: 0.5 }}>
+            HEART TO HEART
+          </Text>
+          <Text variant="headlineSmall" style={{ color: currentTheme.colors.primary, fontWeight: "800" }}>
+            Today
+          </Text>
+        </View>
+        <MaterialCommunityIcons name="bell-outline" size={24} color={currentTheme.colors.primary} />
       </View>
 
-      {/* Daily Devotional Card */}
       {todayDevotional && (
-        <Card style={[styles.card, { backgroundColor: currentTheme.colors.surface }]}>
+        <Card style={[styles.card, { backgroundColor: currentTheme.colors.surface, borderColor: currentTheme.colors.outline }]}>
           <Card.Content style={styles.cardContent}>
             <View style={styles.titleRow}>
               <View style={{ flex: 1 }}>
-                <Text
-                  variant="labelSmall"
-                  style={{ color: currentTheme.colors.primary, fontWeight: "600", marginBottom: 8 }}
-                >
-                  The Daily Divine Message
+                <Text variant="labelSmall" style={{ color: currentTheme.colors.primary, fontWeight: "700", marginBottom: 8 }}>
+                  THE DAILY DEVOTIONAL
                 </Text>
                 <Text variant="labelSmall" style={{ color: currentTheme.colors.outline }}>
                   {todayDevotional.date}
                 </Text>
               </View>
-              <Button
-                icon="share-variant"
-                mode="text"
-                onPress={handleShare}
-                style={{ alignSelf: "flex-start" }}
-                compact
-              />
+              <Button icon="share-variant" mode="text" onPress={handleShare} compact />
             </View>
 
-            <Divider style={{ marginVertical: 12 }} />
+            <Divider style={{ marginVertical: 12, backgroundColor: currentTheme.colors.outline }} />
 
-            <Text
-              variant="bodyMedium"
-              style={{
-                color: currentTheme.colors.onSurface,
-                lineHeight: 22,
-                marginBottom: 12,
-                fontStyle: "italic",
-              }}
-            >
+            <Text variant="titleMedium" style={{ color: currentTheme.colors.onSurface, fontWeight: "700", marginBottom: 8 }}>
+              {todayDevotional.title}
+            </Text>
+
+            <Text variant="bodyMedium" style={{ color: currentTheme.colors.onSurface, lineHeight: 22, marginBottom: 12, fontStyle: "italic" }}>
               "{todayDevotional.verse}"
             </Text>
 
-            <Text
-              variant="bodySmall"
-              style={{
-                color: currentTheme.colors.onSurface,
-                lineHeight: 20,
-                marginBottom: 16,
-              }}
-            >
+            <Text variant="bodySmall" style={{ color: currentTheme.colors.onSurface, lineHeight: 20, marginBottom: 16 }}>
               {todayDevotional.body}
             </Text>
 
-            <Button
-              mode="contained"
-              onPress={handleReadToday}
-              style={{
-                marginTop: 8,
-                backgroundColor: currentTheme.colors.primary,
-              }}
-              labelStyle={{ fontSize: 12 }}
-            >
-              Read Prayer
-            </Button>
+            <View style={styles.primaryActions}>
+              <Button mode="contained" onPress={handleReadToday} style={{ backgroundColor: currentTheme.colors.primary }}>
+                Read now
+              </Button>
+              <Button mode="outlined" onPress={() => navigation.navigate("Audio")} textColor={currentTheme.colors.primary}>
+                Listen
+              </Button>
+            </View>
           </Card.Content>
         </Card>
       )}
 
-      {/* Prayer Reminder Card */}
-      <Card
-        style={[
-          styles.card,
-          {
-            backgroundColor: currentTheme.colors.secondaryContainer,
-          },
-        ]}
-      >
-        <Card.Content style={styles.cardContent}>
-          <View style={styles.reminderContent}>
-            <MaterialCommunityIcons
-              name="hands-pray"
-              size={32}
-              color={currentTheme.colors.secondary}
-              style={{ marginRight: 12 }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text variant="labelMedium" style={{ fontWeight: "600", color: currentTheme.colors.onSurface }}>
-                Want to Deepen Your Faith
-              </Text>
-              <Text variant="labelSmall" style={{ color: currentTheme.colors.onSurfaceVariant, marginTop: 4 }}>
-                Prayer sessions and spiritual guidance
-              </Text>
-            </View>
-          </View>
-          <Button
-            mode="contained-tonal"
-            onPress={() => navigation.navigate("Audio")}
-            style={{ marginTop: 12 }}
-            labelStyle={{ fontSize: 11 }}
-          >
-            Request Prayer
-          </Button>
-        </Card.Content>
-      </Card>
+      <View style={styles.quickActions}>
+        <Button mode="contained-tonal" onPress={() => navigation.navigate("Bible")} style={styles.quickAction}>
+          Bible
+        </Button>
+        <Button mode="contained-tonal" onPress={() => navigation.navigate("Audio")} style={styles.quickAction}>
+          Audio
+        </Button>
+        <Button mode="contained-tonal" onPress={() => navigation.navigate("StudyThemes")} style={styles.quickAction}>
+          Themes
+        </Button>
+      </View>
 
       {/* Explore Devotionals Section */}
       <View style={{ paddingVertical: 12 }}>
@@ -332,7 +287,8 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
     marginVertical: 8,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   cardContent: {
     paddingVertical: 16,
@@ -346,6 +302,23 @@ const styles = StyleSheet.create({
   reminderContent: {
     flexDirection: "row",
     alignItems: "flex-start",
+  },
+  primaryActions: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "flex-start",
+    flexWrap: "wrap",
+  },
+  quickActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  quickAction: {
+    flex: 1,
+    minWidth: 90,
   },
   gridContainer: {
     flexDirection: "row",

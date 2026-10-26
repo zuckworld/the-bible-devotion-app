@@ -2,6 +2,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getDevotionsForMonth, getTodayDevotional, months } from "../data/DevotionalData";
 import { cleanDevotional, cleanText } from "../utils/textCleanup";
+import { getDictionaryEntries, getDictionaryEntry, isBibleTerm, searchVersesByWord } from "./localDatabase";
 
 const configuredBaseUrl = (process.env.EXPO_PUBLIC_API_URL || "https://bible-devotion-api-aq14.onrender.com").replace(/\/$/, "");
 export const API_BASE_URL = `${configuredBaseUrl}/api/v1`;
@@ -155,6 +156,79 @@ export const bibleAPI = {
 export const dictionaryAPI = {
   getWord: async (word) => tryRemote(`/dictionary/${encodeURIComponent(word)}`, () => null),
   getCrossReferences: async (word) => tryRemote(`/dictionary/${encodeURIComponent(word)}/crossrefs`, () => []),
+  getWordStudy: async (word) => {
+    const normalized = String(word || "").trim();
+    if (!normalized) {
+      return {
+        word: "",
+        source: "local",
+        partOfSpeech: "noun",
+        definition: "",
+        summary: "",
+        crossrefs: [],
+        relatedVerses: [],
+        externalLinks: [],
+      };
+    }
+
+    const localEntry = getDictionaryEntry(normalized);
+    const localEntries = getDictionaryEntries(normalized);
+    const localVerseMatches = searchVersesByWord(normalized, "KJV", 5).map((item) => ({
+      ref: `${item.book_name} ${item.chapter_number}:${item.verse_number}`,
+      text: item.text,
+    }));
+
+    const baseStudy = {
+      word: normalized,
+      source: localEntry ? "local" : "reference",
+      dictionaryEntries: localEntries,
+      partOfSpeech: localEntry?.partOfSpeech || "noun",
+      definition: localEntry?.definition || "Definition not available in the local library.",
+      summary: localEntry?.summary || "The app is using the local study library and enrichment links for deeper exploration.",
+      crossrefs: [],
+      relatedVerses: localVerseMatches,
+      externalLinks: [
+        {
+          label: "Dictionary lookup",
+          url: `https://www.google.com/search?q=${encodeURIComponent(`${normalized} Bible meaning`)}`,
+        },
+        {
+          label: "Bible references",
+          url: `https://www.google.com/search?q=${encodeURIComponent(`${normalized} Bible verse`)}`,
+        },
+      ],
+    };
+
+    if (localEntries.length > 0 || isBibleTerm(normalized)) {
+      return baseStudy;
+    }
+
+    try {
+      const response = await axios.get(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(normalized)}`);
+      const first = response.data && response.data[0];
+      const meaning = first?.meanings?.[0];
+      const definition = meaning?.definitions?.[0]?.definition || baseStudy.definition;
+      const summary = meaning?.definitions?.[0]?.example || localEntry?.summary || baseStudy.summary;
+
+      const remoteCrossRefs = await dictionaryAPI.getCrossReferences(normalized).catch(() => []);
+
+      return {
+        ...baseStudy,
+        source: "reference",
+        partOfSpeech: meaning?.partOfSpeech || baseStudy.partOfSpeech,
+        definition,
+        summary,
+        crossrefs: remoteCrossRefs || [],
+      };
+    } catch (error) {
+      try {
+        const remoteCrossRefs = await dictionaryAPI.getCrossReferences(normalized).catch(() => []);
+        return { ...baseStudy, crossrefs: remoteCrossRefs || [] };
+      } catch {
+        return baseStudy;
+      }
+    }
+  },
 };
 
 export const notesAPI = {
