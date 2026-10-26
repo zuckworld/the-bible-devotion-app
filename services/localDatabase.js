@@ -246,7 +246,7 @@ function ensureSchema() {
       topic TEXT NOT NULL,
       category TEXT,
       summary TEXT,
-      references TEXT
+      reference_list TEXT
     );
   `);
 }
@@ -322,7 +322,7 @@ function seedTimelineEvents() {
 function seedCrossReferences() {
   for (const item of crossReferenceSeedData) {
     db.runSync(
-      `INSERT OR IGNORE INTO cross_references (topic, category, summary, references) VALUES (?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO cross_references (topic, category, summary, reference_list) VALUES (?, ?, ?, ?)`,
       [
         String(item.topic || ""),
         String(item.category || "General"),
@@ -460,7 +460,7 @@ export function getTimelineEvents(limit = 12) {
 
 export function getCrossReferences(limit = 6) {
   const rows = db.getAllSync(
-    `SELECT topic, category, summary, references
+    `SELECT topic, category, summary, reference_list
      FROM cross_references
      ORDER BY topic COLLATE NOCASE
      LIMIT ?`,
@@ -473,7 +473,7 @@ export function getCrossReferences(limit = 6) {
     summary: String(row.summary || ""),
     references: (() => {
       try {
-        const parsed = JSON.parse(String(row.references || "[]"));
+        const parsed = JSON.parse(String(row.reference_list || "[]"));
         return Array.isArray(parsed) ? parsed.map(String) : [];
       } catch {
         return [];
