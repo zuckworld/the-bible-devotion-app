@@ -1,5 +1,3 @@
-import { Asset } from "expo-asset";
-import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SQLite from "expo-sqlite";
 
@@ -13,33 +11,15 @@ const BUNDLED_DATABASE = require("../assets/db/bible.db");
 
 let db = null;
 
-async function installBundledDatabase() {
-  const asset = Asset.fromModule(BUNDLED_DATABASE);
-  await asset.downloadAsync();
-
-  if (!asset.localUri || !SQLite.defaultDatabaseDirectory) {
-    throw new Error("The bundled Bible database could not be resolved to a local file.");
-  }
-
-  const databasePath = `${SQLite.defaultDatabaseDirectory}/${DATABASE_NAME}`;
-  const databaseInfo = await FileSystem.getInfoAsync(databasePath);
-  if (databaseInfo.exists) {
-    await SQLite.deleteDatabaseAsync(DATABASE_NAME);
-  }
-
-  await FileSystem.copyAsync({ from: asset.localUri, to: databasePath });
-}
 
 export async function initializeBibleDatabase() {
   const storedVersion = Number(await AsyncStorage.getItem(VERSION_KEY)) || 0;
-  const databasePath = `${SQLite.defaultDatabaseDirectory}/${DATABASE_NAME}`;
-  const databaseInfo = SQLite.defaultDatabaseDirectory
-    ? await FileSystem.getInfoAsync(databasePath)
-    : { exists: false };
-
-  if (!databaseInfo.exists || storedVersion < DB_VERSION) {
-    await installBundledDatabase();
+  if (storedVersion < DB_VERSION) {
+    await SQLite.deleteDatabaseAsync(DATABASE_NAME);
+    db = await SQLite.openDatabaseAsync(DATABASE_NAME, BUNDLED_DATABASE);
     await AsyncStorage.setItem(VERSION_KEY, String(DB_VERSION));
+  } else {
+    db = await SQLite.openDatabaseAsync(DATABASE_NAME);
   }
 
   const oldDatabaseRemoved = await AsyncStorage.getItem(LEGACY_CLEANUP_KEY);
@@ -48,7 +28,6 @@ export async function initializeBibleDatabase() {
     await AsyncStorage.setItem(LEGACY_CLEANUP_KEY, "true");
   }
 
-  db = SQLite.openDatabaseSync(DATABASE_NAME);
   db.execSync("PRAGMA query_only = ON");
   return db;
 }
