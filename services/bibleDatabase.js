@@ -24,7 +24,11 @@ export async function initializeBibleDatabase() {
 
   const oldDatabaseRemoved = await AsyncStorage.getItem(LEGACY_CLEANUP_KEY);
   if (oldDatabaseRemoved !== "true") {
-    await SQLite.deleteDatabaseAsync(LEGACY_DATABASE_NAME);
+    try {
+      await SQLite.deleteDatabaseAsync(LEGACY_DATABASE_NAME);
+    } catch (legacyError) {
+      // The legacy database may not exist on a fresh install; nothing to clean up.
+    }
     await AsyncStorage.setItem(LEGACY_CLEANUP_KEY, "true");
   }
 
